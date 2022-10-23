@@ -1,0 +1,48 @@
+{
+  enabledManagers: ['npm'],
+  extends: [
+    'github>whitesource/merge-confidence:beta',
+    'github>renovatebot/spring-remediations',
+    'config:base',
+    'schedule:weekly',
+    ':enableVulnerabilityAlerts',
+    ':rebaseStalePrs',
+    ':semanticCommits',
+    ':updateNotScheduled',
+    'group:allNonMajor'
+  ],
+  automerge: false,
+  stabilityDays: 7,
+  packageRules: [
+    {
+      matchDepTypes: ['devDependencies'],
+      rangeStrategy: 'pin',
+      semanticCommitType: 'chore'
+    },
+    {
+      matchDepTypes: ['dependencies'],
+      rangeStrategy: 'bump',
+      semanticCommitType: 'fix'
+    },
+    {
+      matchDepTypes: ['peerDependencies'],
+      rangeStrategy: 'widen',
+      semanticCommitType: 'fix'
+    }
+  ],
+  vulnerabilityAlerts: {
+    stabilityDays: 0
+  },
+  lockFileMaintenance: {
+    enabled: true
+  },
+  internalChecksFilter: 'strict',
+  dependencyDashboard: true,
+  ignorePresets: [':prHourlyLimit2'],
+  labels: ['dependencies'],
+  node: {
+    enabled: false
+  },
+  prCreation: 'not-pending',
+  rebaseWhen: 'conflicted'
+}
