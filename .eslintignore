@@ -1,0 +1,3 @@
+/lib/**
+src/app.vue
+src/public.ts
