@@ -10,9 +10,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import { snaproll, TypeAction } from '.'
+import { onMounted, ref } from 'vue'
+import { snaproll, Subscription, TypeAction } from '.'
 import { range } from 'lodash-es'
+
+const loop = snaproll({ fps: 30 })
+const boxRefs = ref<HTMLElement[]>([])
+const fps = ref('0')
+
+const lambda = 0.5
+function lerp(v0: number, v1: number, t: number) {
+  return v0 * (1 - t) + v1 * t
+}
 
 const boxes = range(100).map((_, index) => {
   const width = 5
@@ -20,7 +29,7 @@ const boxes = range(100).map((_, index) => {
   const position = Math.random() * limit
   const velocity = Math.random() / 50
 
-  return {
+  const box = {
     index,
     id: `box${index}`,
     lastPosition: position,
@@ -28,53 +37,48 @@ const boxes = range(100).map((_, index) => {
     position,
     velocity
   }
-})
 
-const boxRefs = ref<HTMLElement[]>([])
-
-const fps = ref('0')
-
-function lerp(v0: number, v1: number, t: number) {
-  return v0 * (1 - t) + v1 * t
-}
-
-const lambda = 0.5
-
-const snap = snaproll((action) => {
-  boxes.forEach((box) => {
+  const subscription: Subscription = (action) => {
     const element = boxRefs.value[box.index]
 
     switch (action.type) {
-      case TypeAction.UPDATE:
+      case TypeAction.FrameUpdate:
         box.lastPosition = box.position
         box.position += box.velocity * action.timestep
         // Switch directions if we go too far
         if (box.position >= box.limit || box.position <= 0)
           box.velocity = -box.velocity
         break
-      case TypeAction.DRAW:
-        element.style.left = `${lerp(box.lastPosition, box.position, 1 - Math.exp(-lambda * action.delta))}vw`
+      case TypeAction.FrameDraw:
+        element.style.left = `${lerp(
+          box.lastPosition,
+          box.position,
+          1 - Math.exp(-lambda * action.delta)
+        )}vw`
 
-        // if (snap.fps < 25) {
-        //   element.style.backgroundColor = 'black'
-        // } else if (snap.fps > 30) {
-        //   element.style.backgroundColor = 'red'
-        // }
         break
-      case TypeAction.END:
+      case TypeAction.FrameEnd:
         if (action.panic) {
           console.log('Panic!')
         }
     }
-  })
+  }
 
-  fps.value = snap.fps.toFixed(2)
+  loop.subscribe(subscription)
+
+  return box
+})
+
+loop.subscribe((action) => {
+  if (action.type === TypeAction.FrameEnd) {
+    fps.value = loop.fps.toFixed(2)
+  }
 })
 
 onMounted(() => {
-  snap.resume()
+  loop.resume()
 
-  window.snap = snap
+  window.snap = loop
 })
 </script>
 
