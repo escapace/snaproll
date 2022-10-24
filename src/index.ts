@@ -136,12 +136,14 @@ export const snaproll = (
   const resume = () => {
     if (!state.isActive) {
       state.isActive = true
+
       state.rafHandle = _requestAnimationFrame((timestamp) => {
         state.lastFrameTime = timestamp
         state.lastFpsUpdate = timestamp
+        state.lastDrawTime = timestamp
         state.framesSinceLastFpsUpdate = 0
 
-        animate(timestamp)
+        state.rafHandle = _requestAnimationFrame(animate)
       })
     }
   }

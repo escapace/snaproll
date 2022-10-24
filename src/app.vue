@@ -73,6 +73,7 @@ const snap = snaproll((action) => {
 
 onMounted(() => {
   snap.resume()
+
   window.snap = snap
 })
 </script>
