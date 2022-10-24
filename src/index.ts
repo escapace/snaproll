@@ -2,35 +2,41 @@ type CancelAnimationFrame = (handle: number) => void
 type RequestAnimationFrame = (callback: (time: number) => void) => number
 
 export enum TypeAction {
-  BEGIN = 0,
-  UPDATE = 1,
-  DRAW = 2,
-  END = 3
+  FrameBegin,
+  FrameUpdate,
+  FrameDraw,
+  FrameEnd
 }
 
-interface ActionBegin {
-  type: TypeAction.BEGIN
+interface ActionFrameBegin {
+  type: TypeAction.FrameBegin
   timestamp: number
   frameDelta: number
 }
 
-interface ActionUpdate {
-  type: TypeAction.UPDATE
+interface ActionFrameUpdate {
+  type: TypeAction.FrameUpdate
   timestep: number
 }
 
-interface ActionDraw {
-  type: TypeAction.DRAW
+interface ActionFrameDraw {
+  type: TypeAction.FrameDraw
   delta: number
   panic: boolean
 }
 
-interface ActionEnd {
-  type: TypeAction.END
+interface ActionFrameEnd {
+  type: TypeAction.FrameEnd
   panic: boolean
 }
 
-export type Action = ActionBegin | ActionUpdate | ActionDraw | ActionEnd
+export type Action =
+  | ActionFrameBegin
+  | ActionFrameUpdate
+  | ActionFrameDraw
+  | ActionFrameEnd
+
+export type Unsubscribe = () => void
 export type Subscription = (action: Action) => void
 
 interface Options {
@@ -121,11 +127,14 @@ const createState = (options: Partial<Pick<Options, 'timestep' | 'fps'>>) => {
   }
 }
 
-export const snaproll = (
-  subscription: Subscription,
-  options: Partial<Options> = {}
-) => {
+export const snaproll = (options: Partial<Options> = {}) => {
   let state = createState(options)
+
+  const subscriptions: Set<Subscription> = new Set()
+
+  const multiplexer = (action: Action) => {
+    subscriptions.forEach((value) => value(action))
+  }
 
   const _requestAnimationFrame: RequestAnimationFrame =
     options.requestAnimationFrame ?? requestAnimationFrame
@@ -163,8 +172,8 @@ export const snaproll = (
     state.frameDelta += timestamp - state.lastFrameTime
     state.lastFrameTime = timestamp
 
-    subscription({
-      type: TypeAction.BEGIN,
+    multiplexer({
+      type: TypeAction.FrameBegin,
       timestamp,
       frameDelta: state.frameDelta
     })
@@ -172,7 +181,7 @@ export const snaproll = (
     state.numUpdateSteps = 0
 
     while (state.frameDelta >= state.timestep) {
-      subscription({ type: TypeAction.UPDATE, timestep: state.timestep })
+      multiplexer({ type: TypeAction.FrameUpdate, timestep: state.timestep })
       state.frameDelta -= state.timestep
 
       // 4 seconds
@@ -201,16 +210,16 @@ export const snaproll = (
 
       state.framesSinceLastFpsUpdate++
 
-      subscription({
-        type: TypeAction.DRAW,
+      multiplexer({
+        type: TypeAction.FrameDraw,
         delta: state.frameDelta / state.timestep,
         panic: state.panic
       })
     }
 
     // Run any updates that are not dependent on time in the simulation.
-    subscription({
-      type: TypeAction.END,
+    multiplexer({
+      type: TypeAction.FrameEnd,
       panic: state.panic
     })
 
@@ -218,6 +227,16 @@ export const snaproll = (
   }
 
   return {
+    subscribe(value: Subscription): Unsubscribe {
+      subscriptions.add(value)
+
+      return () => {
+        subscriptions.delete(value)
+      }
+    },
+    unsubscribe(value: Subscription) {
+      subscriptions.delete(value)
+    },
     get isActive() {
       return state.isActive
     },
