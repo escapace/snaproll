@@ -18,7 +18,7 @@
     "eslint": "9.6.0",
     "eslint-config-escapace": "5.2.2",
     "esroll": "0.2.0",
-    "jsdom": "24.1.0",
+    "jsdom": "25.0.1",
     "knip": "5.23.3",
     "lefthook": "1.6.18",
     "lodash-es": "4.17.21",
