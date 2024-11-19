@@ -15,6 +15,7 @@
   "ignoreDependencies": [
     "@commitlint/cli",
     "@microsoft/api-extractor",
+    "@tweakpane/core",
     "eslint-config-escapace",
     "prettier",
     "syncpack"
