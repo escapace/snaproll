@@ -20,6 +20,9 @@ importers:
       '@ls-lint/ls-lint':
         specifier: 2.2.3
         version: 2.2.3
+      '@tweakpane/core':
+        specifier: 2.0.5
+        version: 2.0.5
       '@types/lodash-es':
         specifier: 4.17.12
         version: 4.17.12
@@ -62,6 +65,9 @@ importers:
       tsx:
         specifier: 4.16.0
         version: 4.16.0
+      tweakpane:
+        specifier: 4.0.5
+        version: 4.0.5
       typescript:
         specifier: 5.5.3
         version: 5.5.3
@@ -913,6 +919,9 @@ packages:
   '@tootallnate/once@2.0.0':
     resolution: {integrity: sha512-XCuKFP5PS55gnMVu3dty8KPatLqUoy/ZYzDzAGCQ8JNFCkLXzmI7vNHCR+XpbZaMWQK/vQubr7PkYq8g470J/A==}
     engines: {node: '>= 10'}
+
+  '@tweakpane/core@2.0.5':
+    resolution: {integrity: sha512-punBgD5rKCF5vcNo6BsSOXiDR/NSs9VM7SG65QSLJIxfRaGgj54ree9zQW6bO3pNFf3AogiGgaNODUVQRk9YqQ==}
 
   '@types/conventional-commits-parser@5.0.0':
     resolution: {integrity: sha512-loB369iXNmAZglwWATL+WRe+CRMmmBPtpolYzIebFaX4YA3x+BEfLqhUAV9WanycKI3TG1IMr5bMJDajDKLlUQ==}
@@ -2887,6 +2896,9 @@ packages:
     engines: {node: '>=18.0.0'}
     hasBin: true
 
+  tweakpane@4.0.5:
+    resolution: {integrity: sha512-rxEXdSI+ArlG1RyO6FghC4ZUX8JkEfz8F3v1JuteXSV0pEtHJzyo07fcDG+NsJfN5L39kSbCYbB9cBGHyuI/tQ==}
+
   type-check@0.4.0:
     resolution: {integrity: sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew==}
     engines: {node: '>= 0.8.0'}
@@ -3901,6 +3913,8 @@ snapshots:
       - typescript
 
   '@tootallnate/once@2.0.0': {}
+
+  '@tweakpane/core@2.0.5': {}
 
   '@types/conventional-commits-parser@5.0.0':
     dependencies:
@@ -6020,6 +6034,8 @@ snapshots:
       get-tsconfig: 4.8.1
     optionalDependencies:
       fsevents: 2.3.3
+
+  tweakpane@4.0.5: {}
 
   type-check@0.4.0:
     dependencies:
