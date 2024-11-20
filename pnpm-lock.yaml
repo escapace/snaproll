@@ -17,6 +17,9 @@ importers:
       '@escapace/pnpm-pack':
         specifier: 0.5.2
         version: 0.5.2(@pnpm/logger@5.2.0)
+      '@escapace/sequentialize':
+        specifier: 2.1.4
+        version: 2.1.4
       '@ls-lint/ls-lint':
         specifier: 2.2.3
         version: 2.2.3
@@ -59,6 +62,9 @@ importers:
       prettier-config-escapace:
         specifier: 1.2.1
         version: 1.2.1
+      simple-statistics:
+        specifier: 7.8.7
+        version: 7.8.7
       syncpack:
         specifier: 12.3.3
         version: 12.3.3(typescript@5.5.3)
@@ -476,6 +482,10 @@ packages:
     resolution: {integrity: sha512-i171vGV8ff0c3JQ/aTLqVbNQSMlSrSQPZjZSPOjRnah3kQ8oz//rxcOY+Hg1RlIMbyyythSbCDdsz7iNHhWfPA==}
     engines: {node: '>=20.12.0', pnpm: '>=9.0.6'}
     hasBin: true
+
+  '@escapace/sequentialize@2.1.4':
+    resolution: {integrity: sha512-kNQLKKqye25tq87RVD5TRGZfE8N7Uyz+HZLsnKs/QE8fH1OdOn8H58maDXwckyacYCSpgfo09cN2ygzYq2Fkww==}
+    engines: {node: '>= 18.18.0', pnpm: '>= 8.7.6'}
 
   '@eslint-community/eslint-utils@4.4.1':
     resolution: {integrity: sha512-s3O3waFUrMV8P/XaF/+ZTp1X9XBZW1a4B97ZnjQF2KYWaFD2A8KyFBsrsfSjEmjn3RGWAIuvlneuZm3CUK3jbA==}
@@ -2665,6 +2675,9 @@ packages:
     resolution: {integrity: sha512-bzyZ1e88w9O1iNJbKnOlvYTrWPDl46O1bG0D3XInv+9tkPrxrN8jUUTiFlDkkmKWgn1M6CfIA13SuGqOa9Korw==}
     engines: {node: '>=14'}
 
+  simple-statistics@7.8.7:
+    resolution: {integrity: sha512-ed5FwTNYvkMTfbCai1U+r3symP+lIPKWCqKdudpN4NFNMn9RtDlFtSyAQhCp4oPH0YBjWu/qnW+5q5ZkPB3uHQ==}
+
   simple-wcswidth@1.0.1:
     resolution: {integrity: sha512-xMO/8eNREtaROt7tJvWJqHBDTMFN4eiQ5I4JRMuilwfnFcV5W9u7RUkueNkdw0jPqGMX36iCywelS5yilTuOxg==}
 
@@ -3499,6 +3512,8 @@ snapshots:
       - '@pnpm/logger'
       - domexception
       - supports-color
+
+  '@escapace/sequentialize@2.1.4': {}
 
   '@eslint-community/eslint-utils@4.4.1(eslint@9.14.0(jiti@1.21.6))':
     dependencies:
@@ -5815,6 +5830,8 @@ snapshots:
   signal-exit@3.0.7: {}
 
   signal-exit@4.1.0: {}
+
+  simple-statistics@7.8.7: {}
 
   simple-wcswidth@1.0.1: {}
 

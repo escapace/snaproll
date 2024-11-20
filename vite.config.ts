@@ -5,5 +5,8 @@ export default defineConfig({
   build: {
     outDir: 'lib/vite',
   },
+  define: {
+    __ENVIRONMENT__: JSON.stringify('testing'),
+  },
   plugins: [vue()],
 })

@@ -1,56 +1,54 @@
-type CancelAnimationFrame = (handle: number) => void
-type RequestAnimationFrame = (callback: (time: number) => void) => number
-
-export enum TypeAction {
-  FrameBegin,
-  FrameUpdate,
-  FrameDraw,
-  FrameEnd,
+export enum SnaprollActionType {
+  Begin,
+  Update,
+  Draw,
 }
 
-interface ActionFrameBegin {
-  frameDelta: number
+export interface SnaprollActionBegin {
   timestamp: number
-  type: TypeAction.FrameBegin
+  type: SnaprollActionType.Begin
 }
 
-interface ActionFrameUpdate {
+export interface SnaprollActionUpdate extends Omit<SnaprollActionBegin, 'type'> {
   timestep: number
-  type: TypeAction.FrameUpdate
+  type: SnaprollActionType.Update
 }
 
-interface ActionFrameDraw {
+export interface SnaprollActionDraw extends Omit<SnaprollActionUpdate, 'type'> {
   delta: number
   panic: boolean
-  type: TypeAction.FrameDraw
+  type: SnaprollActionType.Draw
 }
 
-interface ActionFrameEnd {
-  panic: boolean
-  type: TypeAction.FrameEnd
-}
+export type SnaprollAction = SnaprollActionBegin | SnaprollActionDraw | SnaprollActionUpdate
 
-export type Action = ActionFrameBegin | ActionFrameDraw | ActionFrameEnd | ActionFrameUpdate
-export interface SubscriptionControls {
+export interface SnaprollSubscriptionControls {
   pause: () => void
   resume: () => void
   unsubscribe: () => void
 }
-export type Subscription = (action: Action) => void
 
-interface Options {
-  cancelAnimationFrame: CancelAnimationFrame
+export type SnaprollSubscription = (action: SnaprollAction) => void
+
+export interface SnaprollOptions {
   fps: number
-  requestAnimationFrame: RequestAnimationFrame
   timestep: number
 }
 
-export interface SubscriptionState {
+interface SnaprollSubscriptionState {
   active: boolean
-  value: Subscription
+  value: SnaprollSubscription
 }
 
+type SnaprollActionMultiplexer = Partial<
+  { type: SnaprollActionType } & Omit<SnaprollActionBegin, 'type'> &
+    Omit<SnaprollActionDraw, 'type'> &
+    Omit<SnaprollActionUpdate, 'type'>
+>
+
 const DEFAULT_TIMESTEP = 1000 / 60
+const FRAME_DELTA_EMA_ALPHA = 0.1
+const FRAME_DELTA_EMA_ALPHA_REVERSE = 0.9
 
 const isPositiveNumber = (input: unknown): input is number =>
   typeof input === 'number' && input > 0 && Number.isFinite(input)
@@ -73,21 +71,23 @@ function assertIsTimestep(input: unknown): asserts input is number | undefined {
 }
 
 function assertOptions(
-  options: Partial<Pick<Options, 'fps' | 'timestep'>>,
-): asserts options is Partial<Pick<Options, 'fps' | 'timestep'>> {
+  options: Partial<Pick<SnaprollOptions, 'fps' | 'timestep'>>,
+): asserts options is Partial<Pick<SnaprollOptions, 'fps' | 'timestep'>> {
   assertIsFPS(options.fps)
   assertIsTimestep(options.timestep)
 }
 
 const subscriptionRemove = (
-  subscription: Subscription,
-  subscriptions: SubscriptionState[],
-): SubscriptionState[] => subscriptions.filter((element) => element.value !== subscription)
+  subscription: SnaprollSubscription,
+  subscriptions: SnaprollSubscriptionState[],
+): SnaprollSubscriptionState[] => subscriptions.filter((element) => element.value !== subscription)
 
-const subscriptionFind = (subscription: Subscription, subscriptions: SubscriptionState[]) =>
-  subscriptions.find((element) => element.value === subscription)
+const subscriptionFind = (
+  subscription: SnaprollSubscription,
+  subscriptions: SnaprollSubscriptionState[],
+) => subscriptions.find((element) => element.value === subscription)
 
-const subscriptionActive = (subscriptions: SubscriptionState[]) =>
+const subscriptionActive = (subscriptions: SnaprollSubscriptionState[]) =>
   subscriptions.some((element) => element.active)
 
 const enum TypeState {
@@ -104,10 +104,25 @@ const STATES = {
 
 const calculateUpdateStepsMax = (timestep: number) => Math.round(4000 / timestep)
 
+interface State {
+  frameDelta: number
+  frameDeltaEMA: number
+  frameDeltaMin: number
+  frameId: number
+  panic: boolean
+  pool: SnaprollActionMultiplexer
+  subscriptions: SnaprollSubscriptionState[]
+  timestampLast: number
+  timestep: number
+  type: TypeState
+  updateSteps: number
+  updateStepsMax: number
+}
+
 const createState = (
-  options: { type?: TypeState } & Partial<Options>,
-  subscriptions: SubscriptionState[] = [],
-) => {
+  options: { type?: TypeState } & Partial<SnaprollOptions>,
+  subscriptions: SnaprollSubscriptionState[] = [],
+): State => {
   assertOptions(options)
 
   // An exponential moving average of the frames per second.
@@ -125,11 +140,11 @@ const createState = (
 
   // The timestamp (in milliseconds) of the last time the `fps` moving
   // average was updated.
-  const frameDeltaEMALastUpdate = 0
+  // const frameDeltaEMALastUpdate = 0
 
   // The number of frames delivered since the last time the `fps` moving
   // average was updated (i.e. since `lastFpsUpdate`).
-  const frameDeltaEMAFramesSinceLastUpdate = 0
+  // const frameDeltaEMAFramesSinceLastUpdate = 0
 
   // The number of times update() is called in a given frame. This is only
   // relevant inside of animate(), but a reference is held externally so that
@@ -155,22 +170,23 @@ const createState = (
   // stopping the loop.
   const frameId = 0
 
-  const frameRequest: RequestAnimationFrame =
-    options.requestAnimationFrame ?? requestAnimationFrame.bind(window)
-
-  const frameCancel: CancelAnimationFrame =
-    options.cancelAnimationFrame ?? cancelAnimationFrame.bind(window)
+  const pool: SnaprollActionMultiplexer = {
+    delta: undefined,
+    panic: undefined,
+    timestamp: undefined,
+    timestep: undefined,
+    type: undefined,
+  }
 
   return {
-    frameCancel,
     frameDelta,
     frameDeltaEMA,
-    frameDeltaEMAFramesSinceLastUpdate,
-    frameDeltaEMALastUpdate,
+    // frameDeltaEMAFramesSinceLastUpdate,
+    // frameDeltaEMALastUpdate,
     frameDeltaMin,
     frameId,
-    frameRequest,
     panic,
+    pool,
     subscriptions,
     timestampLast,
     timestep,
@@ -180,10 +196,11 @@ const createState = (
   }
 }
 
-export const snaproll = (options: Partial<Options> = {}) => {
+export const snaproll = (options: Partial<SnaprollOptions> = {}) => {
   let state = createState(options)
+  const pool = state.pool
 
-  const multiplexer = (action: Action) => {
+  const multiplexer = (action: SnaprollActionMultiplexer) => {
     const reference = state.subscriptions
     const length = reference.length
 
@@ -191,7 +208,7 @@ export const snaproll = (options: Partial<Options> = {}) => {
       const subscription = reference[index]
 
       if (subscription.active) {
-        subscription.value(action)
+        subscription.value(action as SnaprollAction)
       }
     }
   }
@@ -204,12 +221,12 @@ export const snaproll = (options: Partial<Options> = {}) => {
     state.type = subscriptionActive(state.subscriptions) ? TypeState.Active : TypeState.Idle
 
     if (state.type === TypeState.Active) {
-      state.frameId = state.frameRequest((timestamp) => {
+      state.frameId = requestAnimationFrame((timestamp) => {
         state.timestampLast = timestamp
-        state.frameDeltaEMALastUpdate = timestamp
-        state.frameDeltaEMAFramesSinceLastUpdate = 0
+        // state.frameDeltaEMALastUpdate = timestamp
+        // state.frameDeltaEMAFramesSinceLastUpdate = 0
 
-        state.frameId = state.frameRequest(animate)
+        state.frameId = requestAnimationFrame(animate)
       })
     }
   }
@@ -219,7 +236,7 @@ export const snaproll = (options: Partial<Options> = {}) => {
       return
     }
 
-    state.frameCancel(state.frameId)
+    cancelAnimationFrame(state.frameId)
     state.type = TypeState.Idle
   }
 
@@ -229,14 +246,14 @@ export const snaproll = (options: Partial<Options> = {}) => {
     }
 
     if (state.type === TypeState.Active) {
-      state.frameCancel(state.frameId)
+      cancelAnimationFrame(state.frameId)
     }
 
     state.type = TypeState.Paused
   }
 
   const animate = (timestamp: number) => {
-    state.frameId = state.frameRequest(animate)
+    state.frameId = requestAnimationFrame(animate)
     const frameDelta = timestamp - state.timestampLast
     const frameDeltaDeviation = Math.max(0, state.frameDeltaMin - frameDelta) / state.frameDeltaEMA
 
@@ -244,37 +261,41 @@ export const snaproll = (options: Partial<Options> = {}) => {
       return
     }
 
-    const frameDeltaEMAAlpha = 0.2
-    // TODO: which is more performant
-
-    // state.frameDeltaEMA =
-    //   1 / (frameDeltaEMAAlpha / (frameDelta) + (1 - frameDeltaEMAAlpha) / state.frameDeltaEMA)
-
-    const frameDeltaEMAUpdateInterval = 300
-    if (timestamp > state.frameDeltaEMALastUpdate + frameDeltaEMAUpdateInterval) {
-      state.frameDeltaEMA =
-        1 /
-        ((frameDeltaEMAAlpha * state.frameDeltaEMAFramesSinceLastUpdate) /
-          (timestamp - state.frameDeltaEMALastUpdate) +
-          (1 - frameDeltaEMAAlpha) / state.frameDeltaEMA)
-
-      state.frameDeltaEMALastUpdate = timestamp
-      state.frameDeltaEMAFramesSinceLastUpdate = 0
+    // TODO: esroll variable for build
+    if (__ENVIRONMENT__ !== 'production') {
+      performance.mark('animate-start')
     }
-    state.frameDeltaEMAFramesSinceLastUpdate++
+
+    state.frameDeltaEMA =
+      1 / (FRAME_DELTA_EMA_ALPHA / frameDelta + FRAME_DELTA_EMA_ALPHA_REVERSE / state.frameDeltaEMA)
+
+    // const frameDeltaEMAUpdateInterval = 300
+    // if (timestamp > state.frameDeltaEMALastUpdate + frameDeltaEMAUpdateInterval) {
+    //   state.frameDeltaEMA =
+    //     1 /
+    //     ((frameDeltaEMAAlpha * state.frameDeltaEMAFramesSinceLastUpdate) /
+    //       (timestamp - state.frameDeltaEMALastUpdate) +
+    //       (1 - frameDeltaEMAAlpha) / state.frameDeltaEMA)
+    //
+    //   state.frameDeltaEMALastUpdate = timestamp
+    //   state.frameDeltaEMAFramesSinceLastUpdate = 0
+    // }
+    // state.frameDeltaEMAFramesSinceLastUpdate++
 
     state.frameDelta += frameDelta
     state.timestampLast = timestamp
 
-    multiplexer({
-      frameDelta: state.frameDelta,
-      timestamp,
-      type: TypeAction.FrameBegin,
-    })
+    pool.type = SnaprollActionType.Begin
+    pool.timestamp = timestamp
+
+    multiplexer(pool)
 
     state.updateSteps = 0
     while (state.frameDelta >= state.timestep) {
-      multiplexer({ timestep: state.timestep, type: TypeAction.FrameUpdate })
+      pool.type = SnaprollActionType.Update
+      pool.timestep = state.timestep
+      multiplexer(pool)
+
       state.frameDelta -= state.timestep
 
       // 4 seconds
@@ -284,19 +305,17 @@ export const snaproll = (options: Partial<Options> = {}) => {
       }
     }
 
-    multiplexer({
-      delta: state.frameDelta / state.timestep,
-      panic: state.panic,
-      type: TypeAction.FrameDraw,
-    })
-
-    // Run any updates that are not dependent on time in the simulation.
-    multiplexer({
-      panic: state.panic,
-      type: TypeAction.FrameEnd,
-    })
+    pool.type = SnaprollActionType.Draw
+    pool.timestep = state.timestep
+    pool.delta = state.frameDelta
+    pool.panic = state.panic
+    multiplexer(pool)
 
     state.panic = false
+
+    if (__ENVIRONMENT__ !== 'production') {
+      performance.measure('animate', { end: performance.now(), start: 'animate-start' })
+    }
   }
 
   return {
@@ -310,15 +329,13 @@ export const snaproll = (options: Partial<Options> = {}) => {
       state.frameDeltaMin = 1000 / value
     },
     pause,
-    reset(options: { keepSubscriptions?: boolean } & Partial<Options> = {}) {
+    reset(options: { keepSubscriptions?: boolean } & Partial<SnaprollOptions> = {}) {
       const keepSubscriptions = options?.keepSubscriptions !== false
 
       // preserve the options
       state = createState(
         {
-          cancelAnimationFrame: options.cancelAnimationFrame ?? state.frameCancel,
           fps: options.fps ?? state.frameDeltaEMA,
-          requestAnimationFrame: options.requestAnimationFrame ?? state.frameRequest,
           timestep: options.timestep ?? state.timestep,
           type: state.type,
         },
@@ -338,7 +355,10 @@ export const snaproll = (options: Partial<Options> = {}) => {
     get state() {
       return STATES[state.type]
     },
-    subscribe(value: Subscription, options?: { activate?: boolean }): SubscriptionControls {
+    subscribe(
+      value: SnaprollSubscription,
+      options?: { activate?: boolean },
+    ): SnaprollSubscriptionControls {
       if (subscriptionFind(value, state.subscriptions) === undefined) {
         const reference = state.subscriptions
         const active = options?.activate !== false
