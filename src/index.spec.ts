@@ -2,7 +2,7 @@ import { deferred } from '@escapace/sequentialize'
 import { max, mean, median, min, standardDeviation } from 'simple-statistics'
 import { assert, describe, it, vi } from 'vitest'
 import {
-  snaproll,
+  Snaproll,
   SnaprollActionType,
   type SnaprollActionBegin,
   type SnaprollActionDraw,
@@ -56,7 +56,7 @@ const createScenario = async () => {
 
   const timestep = 1000 / 60
   const fps = 60
-  const loop = snaproll({ fps, timestep })
+  const loop = new Snaproll({ fps, timestep })
   const begin = vi.fn<[SnaprollActionBegin, number]>()
   const update = vi.fn<[SnaprollActionUpdate, number]>()
   const draw = vi.fn<[SnaprollActionDraw, number]>()
