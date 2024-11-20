@@ -8,10 +8,10 @@
 
 <script setup lang="ts">
 import { range } from 'lodash-es'
-import { onMounted, ref } from 'vue'
-import { snaproll, SnaprollActionType, type SnaprollSubscription } from './index'
-import { Pane } from 'tweakpane'
 import { mean } from 'simple-statistics'
+import { Pane } from 'tweakpane'
+import { onMounted, ref } from 'vue'
+import { Snaproll, SnaprollActionType, type SnaprollSubscription } from './index'
 
 // class Estimation {
 //   private currentCount = 0
@@ -88,7 +88,7 @@ class Estimation {
   }
 }
 
-const loop = snaproll({ fps: 30 })
+const loop = new Snaproll({ fps: 30 })
 const boxRefs = ref<HTMLElement[]>([])
 
 function lerp(v0: number, v1: number, t: number) {
@@ -110,10 +110,17 @@ const boxes = range(50).map((_, index) => {
     velocity,
   }
 
+  // 4 seconds
+  const updateStepsMax = Math.round(4000 / loop.timestep)
+  let updateSteps = 0
+
   const subscription: SnaprollSubscription = (action) => {
     const element = boxRefs.value[box.index]
 
     switch (action.type) {
+      case SnaprollActionType.Begin:
+        updateSteps = 0
+        break
       case SnaprollActionType.Update:
         box.lastPosition = box.position
         box.position += box.velocity * action.timestep
@@ -125,10 +132,9 @@ const boxes = range(50).map((_, index) => {
           box.lastPosition,
           box.position,
           action.delta / action.timestep,
-          // 1 - Math.exp(-lambda * action.delta),
         )}vw`
 
-        if (action.panic) {
+        if (++updateSteps >= updateStepsMax) {
           loop.resetFrameDelta()
         }
 
@@ -169,7 +175,6 @@ const observer = new PerformanceObserver((list) => {
     if (entry.entryType === 'measure') {
       durations.push(entry.duration)
 
-
       if (durations.length > 60) {
         durations.shift()
       }
@@ -192,7 +197,7 @@ const read = {
   get draw() {
     return estimationDraw.getFrequency()
   },
-  get mean() {
+  get perf() {
     try {
       return mean(durations) * 100
     } catch {
@@ -246,7 +251,7 @@ Object.keys(read).forEach((key) => {
     readonly: true,
     view: 'graph',
     min: 0,
-    max: 200,
+    max: 100,
     bufferSize: 100,
   })
 })
