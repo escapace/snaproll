@@ -9,8 +9,9 @@
 <script setup lang="ts">
 import { range } from 'lodash-es'
 import { onMounted, ref } from 'vue'
-import { snaproll, type Subscription, TypeAction } from './index'
+import { snaproll, SnaprollActionType, type SnaprollSubscription } from './index'
 import { Pane } from 'tweakpane'
+import { mean } from 'simple-statistics'
 
 // class Estimation {
 //   private currentCount = 0
@@ -63,29 +64,27 @@ class Estimation {
   private last = 0
   private sum = 0
 
-  constructor(
-    private readonly sampleInterval = 1000
-  ) {}
+  constructor(private readonly sampleInterval = 1000) {}
 
   update(currentTime: number = performance.now()): void {
     this.count++
 
     if (currentTime - this.last >= this.sampleInterval) {
-      const factor = 0.8;
-      this.sum = this.sum * (1 - factor) + this.count * factor;
-      this.count = 0;
-      this.last = currentTime;
+      const factor = 0.8
+      this.sum = this.sum * (1 - factor) + this.count * factor
+      this.count = 0
+      this.last = currentTime
     }
   }
 
   getFrequency(): number {
-    return this.sum;
+    return this.sum
   }
 
   reset(): void {
-    this.count = 0;
-    this.sum = 0;
-    this.last = 0;
+    this.count = 0
+    this.sum = 0
+    this.last = 0
   }
 }
 
@@ -111,29 +110,29 @@ const boxes = range(50).map((_, index) => {
     velocity,
   }
 
-  const subscription: Subscription = (action) => {
+  const subscription: SnaprollSubscription = (action) => {
     const element = boxRefs.value[box.index]
 
     switch (action.type) {
-      case TypeAction.FrameUpdate:
+      case SnaprollActionType.Update:
         box.lastPosition = box.position
         box.position += box.velocity * action.timestep
         // Switch directions if we go too far
         if (box.position >= box.limit || box.position <= 0) box.velocity = -box.velocity
         break
-      case TypeAction.FrameDraw:
+      case SnaprollActionType.Draw:
         element.style.left = `${lerp(
           box.lastPosition,
           box.position,
-          action.delta,
+          action.delta / action.timestep,
           // 1 - Math.exp(-lambda * action.delta),
         )}vw`
 
-        break
-      case TypeAction.FrameEnd:
         if (action.panic) {
           loop.resetFrameDelta()
         }
+
+        break
     }
   }
 
@@ -159,7 +158,26 @@ const boxes = range(50).map((_, index) => {
 const estimationBegin = new Estimation()
 const estimationUpdate = new Estimation()
 const estimationDraw = new Estimation()
-const estimationEnd = new Estimation()
+
+const durations: number[] = []
+
+performance.clearMarks()
+performance.clearMeasures()
+
+const observer = new PerformanceObserver((list) => {
+  list.getEntries().forEach((entry) => {
+    if (entry.entryType === 'measure') {
+      durations.push(entry.duration)
+
+
+      if (durations.length > 60) {
+        durations.shift()
+      }
+    }
+  })
+})
+
+observer.observe({ entryTypes: ['measure'] })
 
 const read = {
   get fps() {
@@ -174,8 +192,12 @@ const read = {
   get draw() {
     return estimationDraw.getFrequency()
   },
-  get end() {
-    return estimationEnd.getFrequency()
+  get mean() {
+    try {
+      return mean(durations) * 100
+    } catch {
+      return 0
+    }
   },
 }
 
@@ -246,20 +268,16 @@ pane
   })
 
 loop.subscribe((action) => {
-  if (action.type === TypeAction.FrameBegin) {
+  if (action.type === SnaprollActionType.Begin) {
     estimationBegin.update()
   }
 
-  if (action.type === TypeAction.FrameUpdate) {
+  if (action.type === SnaprollActionType.Update) {
     estimationUpdate.update()
   }
 
-  if (action.type === TypeAction.FrameDraw) {
+  if (action.type === SnaprollActionType.Draw) {
     estimationDraw.update()
-  }
-
-  if (action.type === TypeAction.FrameEnd) {
-    estimationEnd.update()
   }
 })
 

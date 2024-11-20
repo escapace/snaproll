@@ -2,6 +2,7 @@
   "builds": {
     "browser": {
       "define": {
+        "__ENVIRONMENT__": "\"production\"",
         "__PLATFORM__": "\"browser\""
       },
       "entryPoints": ["src/index.ts"],
