@@ -34,7 +34,7 @@ const createPerformanceObserver = () => {
 
   const observer = new PerformanceObserver((list) => {
     list.getEntries().forEach((entry) => {
-      if (entry.entryType === 'measure') {
+      if (entry.entryType === 'measure' && entry.name === 'snaproll-animate') {
         durations.push(entry.duration)
       }
     })
@@ -57,9 +57,9 @@ const createScenario = async () => {
   const timestep = 1000 / 60
   const fps = 60
   const loop = new Snaproll({ fps, timestep })
-  const begin = vi.fn<[SnaprollActionBegin, number]>()
-  const update = vi.fn<[SnaprollActionUpdate, number]>()
-  const draw = vi.fn<[SnaprollActionDraw, number]>()
+  const begin = vi.fn<(a: SnaprollActionBegin, b: number) => void>()
+  const update = vi.fn<(a: SnaprollActionUpdate, b: number) => void>()
+  const draw = vi.fn<(a: SnaprollActionDraw, b: number) => void>()
   const done = deferred()
 
   loop.subscribe((value) => {
@@ -117,18 +117,14 @@ describe('snaproll', () => {
       setTimeout(resolve, 100)
     }))
 
-  it(
-    'snaproll',
-    async () => {
-      const { durations, fps } = await createScenario()
+  it('snaproll', { timeout: 20 * 1000 }, async () => {
+    const { durations, fps } = await createScenario()
 
-      console.log('Median', median(durations))
-      console.log('Mean', mean(durations))
-      console.log('Min', min(durations))
-      console.log('Max', max(durations))
-      console.log('SD', standardDeviation(durations))
-      console.log('FPS', fps)
-    },
-    { timeout: 20 * 1000 },
-  )
+    console.log('Median', median(durations))
+    console.log('Mean', mean(durations))
+    console.log('Min', min(durations))
+    console.log('Max', max(durations))
+    console.log('SD', standardDeviation(durations))
+    console.log('FPS', fps)
+  })
 })

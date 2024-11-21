@@ -172,7 +172,7 @@ performance.clearMeasures()
 
 const observer = new PerformanceObserver((list) => {
   list.getEntries().forEach((entry) => {
-    if (entry.entryType === 'measure') {
+    if (entry.entryType === 'measure' && entry.name === 'snaproll-animate') {
       durations.push(entry.duration)
 
       if (durations.length > 60) {
