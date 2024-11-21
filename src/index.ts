@@ -186,7 +186,7 @@ const createAnimate = (store: Store, callback: () => void) => {
     }
 
     if (__ENVIRONMENT__ !== 'production') {
-      performance.mark('animate-start')
+      performance.mark('snaproll-animate-start')
     }
 
     store.frameDeltaEMA =
@@ -213,7 +213,10 @@ const createAnimate = (store: Store, callback: () => void) => {
     callback()
 
     if (__ENVIRONMENT__ !== 'production') {
-      performance.measure('animate', { end: performance.now(), start: 'animate-start' })
+      performance.measure('snaproll-animate', {
+        end: performance.now(),
+        start: 'snaproll-animate-start',
+      })
     }
   }
 
