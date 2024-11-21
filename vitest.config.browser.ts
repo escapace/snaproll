@@ -8,7 +8,7 @@ export default mergeConfig(
   defineConfig({
     define: {
       ...builds.browser.define,
-      __ENVIRONMENT__: JSON.stringify('testing'),
+      __ENVIRONMENT__: JSON.stringify('development'),
       __VERSION__: JSON.stringify(version),
     },
     esbuild: {

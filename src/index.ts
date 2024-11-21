@@ -386,7 +386,6 @@ export class Snaproll {
   }
 
   public get fps() {
-    // return 1000 / state.frameDeltaEMA
     return this.store.frameDeltaEMA !== 0 ? 1000 / this.store.frameDeltaEMA : 0
   }
 
