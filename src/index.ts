@@ -257,7 +257,7 @@ export class Snaproll {
     this.store = createStore(options)
   }
 
-  private idle() {
+  public idle() {
     const store = this.store
 
     if (store.state !== TypeState.Active || subscriptionActive(store.subscriptions)) {
@@ -329,7 +329,7 @@ export class Snaproll {
 
   public subscribe(
     value: SnaprollSubscription,
-    options?: { activate?: boolean },
+    options?: { immediate?: boolean },
   ): SnaprollSubscriptionControls {
     // eslint-disable-next-line typescript/no-this-alias
     const self = this
@@ -337,7 +337,7 @@ export class Snaproll {
 
     if (subscriptionFind(value, state.subscriptions) === undefined) {
       const reference = state.subscriptions
-      const active = options?.activate !== false
+      const active = options?.immediate !== false
       state.subscriptions = [...reference, { active, value }]
 
       if (state.state === TypeState.Idle) {
