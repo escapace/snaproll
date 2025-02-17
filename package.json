@@ -16,7 +16,7 @@
     "@tweakpane/core": "2.0.5",
     "@types/lodash-es": "4.17.12",
     "@vitejs/plugin-vue": "5.2.1",
-    "@vitest/coverage-v8": "2.1.8",
+    "@vitest/coverage-v8": "3.0.5",
     "eslint": "9.17.0",
     "eslint-config-escapace": "5.4.4",
     "esroll": "0.4.0",
@@ -32,7 +32,7 @@
     "tweakpane": "4.0.5",
     "typescript": "5.7.2",
     "vite": "6.0.3",
-    "vitest": "2.1.9",
+    "vitest": "3.0.5",
     "vue": "3.5.13"
   },
   "engines": {
