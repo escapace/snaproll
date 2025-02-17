@@ -20,7 +20,7 @@
     "eslint": "9.17.0",
     "eslint-config-escapace": "5.4.4",
     "esroll": "0.4.0",
-    "jsdom": "25.0.1",
+    "jsdom": "26.0.0",
     "knip": "5.40.0",
     "lefthook": "1.9.2",
     "lodash-es": "4.17.21",
