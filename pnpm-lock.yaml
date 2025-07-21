@@ -18,8 +18,8 @@ importers:
         specifier: 0.6.0
         version: 0.6.0(@pnpm/logger@5.2.0)
       '@escapace/sequentialize':
-        specifier: 3.0.0
-        version: 3.0.0
+        specifier: 4.0.1
+        version: 4.0.1
       '@ls-lint/ls-lint':
         specifier: 2.2.3
         version: 2.2.3
@@ -535,9 +535,9 @@ packages:
     engines: {node: '>=22.13.1', pnpm: '>=10.4.1'}
     hasBin: true
 
-  '@escapace/sequentialize@3.0.0':
-    resolution: {integrity: sha512-bC64DypJ4pKK9TG7ZF9nh8Q/VE0EzOFLUofptYAGdwNtwKQkVDUQl/xAQw12NEBRryrn4xrJz+CYuY6Z+RUHIw==}
-    engines: {pnpm: '>=9.14.4'}
+  '@escapace/sequentialize@4.0.1':
+    resolution: {integrity: sha512-+eZLn+VDw+fC1STblVwVJn7oel4DqRLT87TPeEPLNtbZj9oA8bgS6ZXCGjhRMwOIjjbXM0eJ2dJOBOXFkEiPeA==}
+    engines: {pnpm: '>=10.10.0'}
 
   '@eslint-community/eslint-utils@4.7.0':
     resolution: {integrity: sha512-dyybb3AcajC7uha6CvhdVRJqaKyn7w2YKqKyAN37NKYgZT36w+iRb0Dymmc5qEJ549c/S31cMMSFd75bteCpCw==}
@@ -3427,7 +3427,7 @@ snapshots:
       - domexception
       - supports-color
 
-  '@escapace/sequentialize@3.0.0': {}
+  '@escapace/sequentialize@4.0.1': {}
 
   '@eslint-community/eslint-utils@4.7.0(eslint@9.31.0(jiti@2.4.2))':
     dependencies:
