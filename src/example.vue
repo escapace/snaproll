@@ -1,63 +1,22 @@
 <template>
   <div>
     <div clas="container">
-      <div v-for="box in boxes" :key="box.id" ref="boxRefs" class="box"></div>
+      <div
+        v-for="box in boxes"
+        :key="box.id"
+        ref="boxRefs"
+        class="box"
+        :style="{ width: `${box.width}vw` }"
+      ></div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { range } from 'lodash-es'
-import { mean } from 'simple-statistics'
 import { Pane } from 'tweakpane'
 import { onMounted, ref } from 'vue'
 import { Snaproll, SnaprollActionType, type SnaprollSubscription } from './index'
-
-// class Estimation {
-//   private currentCount = 0
-//   private lastSampleTime: number | undefined = undefined
-//   private readonly samples: { count: number; time: number }[] = []
-//
-//   constructor(
-//     private readonly windowSeconds = 1,
-//     private readonly sampleInterval = 1000,
-//   ) {}
-//
-//   update(currentTime: number = performance.now()): void {
-//     this.currentCount++
-//
-//     if (
-//       this.lastSampleTime === undefined ||
-//       currentTime - this.lastSampleTime >= this.sampleInterval
-//     ) {
-//       this.samples.push({ count: this.currentCount, time: currentTime })
-//       this.currentCount = 0
-//       this.lastSampleTime = currentTime
-//
-//       // Remove outdated samples
-//       const cutoffTime = currentTime - this.windowSeconds * 1000
-//       this.samples.splice(
-//         0,
-//         this.samples.findIndex((sample) => sample.time >= cutoffTime),
-//       )
-//     }
-//   }
-//
-//   getFrequency(): number {
-//     if (!this.samples.length) return 0
-//
-//     const totalCount = this.samples.reduce((sum, { count }) => sum + count, 0)
-//     const timeSpan = (this.samples.at(-1)!.time - this.samples[0].time) / 1000
-//
-//     return timeSpan ? totalCount / timeSpan : totalCount
-//   }
-//
-//   reset(): void {
-//     this.samples.length = 0
-//     this.currentCount = 0
-//     this.lastSampleTime = undefined
-//   }
-// }
 
 class Estimation {
   private count = 0
@@ -66,11 +25,13 @@ class Estimation {
 
   constructor(private readonly sampleInterval = 1000) {}
 
-  update(currentTime: number = performance.now()): void {
-    this.count++
+  update(currentTime: number = performance.now(), update = true): void {
+    if (update) {
+      this.count++
+    }
 
     if (currentTime - this.last >= this.sampleInterval) {
-      const factor = 0.8
+      const factor = 0.9
       this.sum = this.sum * (1 - factor) + this.count * factor
       this.count = 0
       this.last = currentTime
@@ -78,6 +39,7 @@ class Estimation {
   }
 
   getFrequency(): number {
+    this.update(performance.now(), false)
     return this.sum
   }
 
@@ -95,51 +57,76 @@ function lerp(v0: number, v1: number, t: number) {
   return v0 * (1 - t) + v1 * t
 }
 
-const boxes = range(50).map((_, index) => {
-  const width = 5
-  const limit = 100 - width
-  const position = Math.random() * limit
-  const velocity = Math.random() / 50
+interface BoxState {
+  index: number
+  id: string
+  lastPosition: number // positive number 0-100
+  position: number // positive number 0-100
+  velocity: number // positive or negative number, per millisecond
+  width: number // positive number 0-100
+}
 
-  const box = {
+function updateBox(state: BoxState, deltaTime: number): void {
+  const x0 = state.position
+  const v0 = state.velocity
+  const L = 100 - state.width // effective track length (0 … L)
+
+  state.lastPosition = x0 // remember where we just were
+
+  // -------- unfolded coordinate -------------------------------------------
+  const s = x0 + v0 * deltaTime // no limits, can be ±big
+
+  // -------- fold back into corridor (position) ----------------------------
+  const doubleL = 2 * L
+  let m = ((s % doubleL) + doubleL) % doubleL // 0 … 2L  (always ≥ 0)
+  if (m > L) m = doubleL - m // mirror right half
+  state.position = m // 0 … L
+
+  // -------- direction after all the impacts --------------------------------
+  const halfLaps = Math.floor(s / L) // may be negative
+  const bouncedOdd = (halfLaps & 1) !== 0 // parity test
+  state.velocity = bouncedOdd ? -v0 : v0 // keep speed, maybe flip
+}
+
+const boxes = range(100).map((_, index) => {
+  const position = Math.random() * 100
+  const box: BoxState = {
     index,
     id: `box${index}`,
     lastPosition: position,
-    limit,
     position,
-    velocity,
+    width: 5 + 20 * Math.random(),
+    velocity: Math.random() / 100,
   }
 
-  // 4 seconds
-  const updateStepsMax = Math.round(4000 / loop.timestep)
-  let updateSteps = 0
-
   const subscription: SnaprollSubscription = (action) => {
-    const element = boxRefs.value[box.index]
-
     switch (action.type) {
       case SnaprollActionType.Begin:
-        updateSteps = 0
         break
       case SnaprollActionType.Update:
-        box.lastPosition = box.position
-        box.position += box.velocity * action.timestep
-        // Switch directions if we go too far
-        if (box.position >= box.limit || box.position <= 0) box.velocity = -box.velocity
-        break
+        const jump = action.updateStep >= 10
+
+        const timestep = jump ? action.updateStep * action.timestep : action.timestep
+
+        updateBox(box, timestep)
+
+        return jump
       case SnaprollActionType.Draw:
-        element.style.left = `${lerp(
+        if (action.alpha > 1 || action.alpha < 0) {
+          console.log(action.alpha)
+        }
+
+        boxRefs.value[box.index].style.transform = `translateX(${lerp(
           box.lastPosition,
           box.position,
-          action.delta / action.timestep,
-        )}vw`
-
-        if (++updateSteps >= updateStepsMax) {
-          loop.resetFrameDelta()
-        }
+          action.alpha,
+          // 1 - Math.pow(0.25, action.alpha),
+        )}vw)`
 
         break
     }
+
+    return
   }
 
   loop.subscribe(subscription)
@@ -147,47 +134,24 @@ const boxes = range(50).map((_, index) => {
   return box
 })
 
-// pane.addBinding(store, 'model', {
-//   label: 'theme',
-//   options: {
-//     one: 'one',
-//     two: 'two',
-//   },
-// })
-// pane.addBinding(store, 'lightness', { max: 1, min: 0, step: 0.01 })
-// pane.addBinding(store, 'chroma', { max: 1, min: 0, step: 0.01 })
-// pane.addBinding(store, 'contrast', { max: 1, min: 0, step: 0.01 })
-// pane.addBinding(store, 'darkMode', { label: 'dark mode' })
-//
-// pane.addBinding(store, 'modelState', { label: 'state', readonly: true })
-
 const estimationBegin = new Estimation()
 const estimationUpdate = new Estimation()
 const estimationDraw = new Estimation()
-
-const durations: number[] = []
+const estimationFrameDrop = new Estimation()
 
 performance.clearMarks()
-performance.clearMeasures()
 
 const observer = new PerformanceObserver((list) => {
   list.getEntries().forEach((entry) => {
-    if (entry.entryType === 'measure' && entry.name === 'snaproll-animate') {
-      durations.push(entry.duration)
-
-      if (durations.length > 60) {
-        durations.shift()
-      }
+    if (entry.entryType === 'mark' && entry.name === 'snaproll-animate-frame-drop') {
+      estimationFrameDrop.update(entry.startTime)
     }
   })
 })
 
-observer.observe({ entryTypes: ['measure'] })
+observer.observe({ entryTypes: ['mark'] })
 
 const read = {
-  get fps() {
-    return loop.fps
-  },
   get begin() {
     return estimationBegin.getFrequency()
   },
@@ -197,12 +161,8 @@ const read = {
   get draw() {
     return estimationDraw.getFrequency()
   },
-  get perf() {
-    try {
-      return mean(durations) * 100
-    } catch {
-      return 0
-    }
+  get drops() {
+    return estimationFrameDrop.getFrequency()
   },
 }
 
@@ -213,18 +173,46 @@ const read = {
 //   }
 // });
 
-const pane = new Pane({ title: 'snaproll', expanded: true })
+const pane = new Pane({ expanded: true })
 
-pane
-  .addBinding({ fps: 30 }, 'fps', {
-    min: 10,
-    max: 80,
+pane.element.style.opacity = '0.9'
+
+const controls = pane.addFolder({
+  title: 'Controls',
+})
+
+const folder = pane.addFolder({
+  title: 'Measurements',
+})
+
+controls
+  .addButton({
+    title: 'pause',
+  })
+  .on('click', () => {
+    folder.disabled = true
+    loop.pause()
+  })
+
+controls
+  .addButton({
+    title: 'resume',
+  })
+  .on('click', () => {
+    folder.disabled = false
+    loop.resume()
+  })
+
+controls
+  .addBinding({ fps: loop.fps }, 'fps', {
+    min: 1,
+    max: 100,
   })
   .on('change', ({ value }) => {
     loop.fps = value
   })
 
-pane
+controls
   .addBinding({ timestep: loop.timestep }, 'timestep', {
     min: 1,
     max: 100,
@@ -233,12 +221,8 @@ pane
     loop.timestep = value
   })
 
-pane.addBlade({
-  view: 'separator',
-})
-
 Object.keys(read).forEach((key) => {
-  pane.addBinding(read, key as keyof typeof read, {
+  folder.addBinding(read, key as keyof typeof read, {
     view: 'text',
     label: `${key}`,
     parse: (value: number) => `${value.toPrecision(6)}`,
@@ -246,7 +230,7 @@ Object.keys(read).forEach((key) => {
     // value: 'sketch-01',
   })
 
-  pane.addBinding(read, key as keyof typeof read, {
+  folder.addBinding(read, key as keyof typeof read, {
     label: '',
     readonly: true,
     view: 'graph',
@@ -256,23 +240,7 @@ Object.keys(read).forEach((key) => {
   })
 })
 
-pane
-  .addButton({
-    title: 'pause',
-  })
-  .on('click', () => {
-    loop.pause()
-  })
-
-pane
-  .addButton({
-    title: 'resume',
-  })
-  .on('click', () => {
-    loop.resume()
-  })
-
-loop.subscribe((action) => {
+loop.subscribe((action): undefined => {
   if (action.type === SnaprollActionType.Begin) {
     estimationBegin.update()
   }
@@ -289,7 +257,7 @@ loop.subscribe((action) => {
 onMounted(() => {
   loop.resume()
 
-  window.loop = loop
+  Object.assign(window, { loop })
 })
 </script>
 
@@ -298,6 +266,31 @@ onMounted(() => {
   overflow-x: hidden;
   margin: 0;
   padding: 0;
+  /* background-color: black; */
+}
+
+:root {
+  --tp-base-background-color: hsla(0, 0%, 0%, 1);
+  --tp-base-shadow-color: hsla(0, 0%, 0%, 0.2);
+  --tp-button-background-color-active: hsla(0, 0%, 100%, 1);
+  --tp-button-background-color-focus: hsla(0, 0%, 100%, 1);
+  --tp-button-background-color-hover: hsla(0, 0%, 100%, 1);
+  --tp-button-background-color: hsla(0, 0%, 100%, 1);
+  --tp-button-foreground-color: hsla(0, 0%, 0%, 1);
+  --tp-container-background-color-active: hsla(0, 0%, 0%, 1);
+  --tp-container-background-color-focus: hsla(0, 0%, 0%, 1);
+  --tp-container-background-color-hover: hsla(0, 0%, 0%, 1);
+  --tp-container-background-color: hsla(0, 0%, 0%, 1);
+  --tp-container-foreground-color: hsla(0, 0%, 100%, 1);
+  --tp-groove-foreground-color: hsla(0, 0%, 0%, 1);
+  --tp-input-background-color-active: hsla(0, 0%, 0%, 1);
+  --tp-input-background-color-focus: hsla(0, 0%, 0%, 1);
+  --tp-input-background-color-hover: hsla(0, 0%, 0%, 1);
+  --tp-input-background-color: hsla(0, 0%, 0%, 1);
+  --tp-input-foreground-color: hsla(0, 0%, 100%, 1);
+  --tp-label-foreground-color: hsla(0, 0%, 100%, 1);
+  --tp-monitor-background-color: hsla(0, 0%, 0%, 1);
+  --tp-monitor-foreground-color: hsla(0, 0%, 100%, 1);
 }
 
 .container {
@@ -306,41 +299,19 @@ onMounted(() => {
   scroll-behavior: none;
 }
 
-.fps {
-  font-kerning: none;
-  position: fixed;
-  margin-top: 5vw;
-  margin-bottom: 5vw;
-  margin-right: 5vw;
-  margin-left: 5vw;
-  top: 2vw;
-  right: 2vw;
-  text-align: right;
-  font-weight: 300;
-  font-size: 5vw;
-  font-family:
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    Roboto,
-    Oxygen,
-    Ubuntu,
-    Cantarell,
-    'Open Sans',
-    'Helvetica Neue',
-    sans-serif;
+body {
+  background-color: black;
 }
 
 .box {
+  /* transition: transform 40ms linear; */
   z-index: -1;
   position: relative;
-  background-color: navy;
+  background-color: white;
   height: 4.9vw;
   margin-bottom: 0.05vw;
   margin-top: 0.05vw;
   margin-left: 0.05vw;
   margin-right: 0.05vw;
-  width: 4.9vw;
 }
 </style>

@@ -8,35 +8,33 @@
   },
   "bugs": "https://github.com/escapace/snaproll/issues",
   "devDependencies": {
-    "@commitlint/cli": "19.7.1",
-    "@commitlint/config-conventional": "19.7.1",
+    "@commitlint/cli": "19.8.1",
+    "@commitlint/config-conventional": "19.8.1",
     "@escapace/pnpm-pack": "0.6.0",
-    "@escapace/sequentialize": "3.0.0",
-    "@ls-lint/ls-lint": "2.2.3",
+    "@ls-lint/ls-lint": "2.3.1",
     "@tweakpane/core": "2.0.5",
     "@types/lodash-es": "4.17.12",
-    "@vitejs/plugin-vue": "5.2.1",
-    "@vitest/coverage-v8": "3.0.6",
-    "eslint": "9.31.0",
+    "@vitejs/plugin-vue": "6.0.1",
+    "@vitest/coverage-v8": "3.2.4",
+    "eslint": "9.32.0",
     "eslint-config-escapace": "5.8.0",
     "esroll": "0.4.5",
-    "jsdom": "26.0.0",
-    "knip": "5.44.4",
-    "lefthook": "1.10.10",
+    "jsdom": "26.1.0",
+    "knip": "5.62.0",
+    "lefthook": "1.12.2",
     "lodash-es": "4.17.21",
-    "prettier": "3.5.1",
+    "prettier": "3.6.2",
     "prettier-config-escapace": "1.2.1",
-    "simple-statistics": "7.8.7",
-    "syncpack": "13.0.2",
-    "tsx": "4.19.3",
+    "syncpack": "13.0.4",
+    "tsx": "4.20.3",
     "tweakpane": "4.0.5",
-    "typescript": "5.7.3",
-    "vite": "6.1.1",
-    "vitest": "3.0.6",
-    "vue": "3.5.13"
+    "typescript": "5.9.2",
+    "vite": "7.0.6",
+    "vitest": "3.2.4",
+    "vue": "3.5.18"
   },
   "engines": {
-    "pnpm": ">=10.4.1"
+    "pnpm": "^10.10.0"
   },
   "exports": {
     ".": {
@@ -53,8 +51,8 @@
   "module": "./lib/browser/index.js",
   "pnpm": {
     "onlyBuiltDependencies": [
-      "lefthook",
-      "esbuild"
+      "esbuild",
+      "lefthook"
     ]
   },
   "private": false,

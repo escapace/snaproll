@@ -18,4 +18,7 @@ export default defineConfig((environment) => ({
     __VERSION__: JSON.stringify(packageJSON.version),
   },
   plugins: [vue()],
+  server: {
+    allowedHosts: true,
+  },
 }))

@@ -12,20 +12,26 @@ export interface SnaprollActionBegin {
 export interface SnaprollActionUpdate extends Omit<SnaprollActionBegin, 'type'> {
   timestep: number
   type: SnaprollActionType.Update
+  updateStep: number
 }
 
-export interface SnaprollActionDraw extends Omit<SnaprollActionUpdate, 'type'> {
-  delta: number
+export interface SnaprollActionDraw extends Omit<SnaprollActionUpdate, 'index' | 'type'> {
+  alpha: number
   type: SnaprollActionType.Draw
 }
 
-export type SnaprollAction = SnaprollActionBegin | SnaprollActionDraw | SnaprollActionUpdate
+// eslint-disable-next-line typescript/no-empty-object-type, typescript/no-empty-interface
+export interface SnaprollContext {}
 
-type SnaprollAction_ = Partial<
-  { type: SnaprollActionType } & Omit<SnaprollActionBegin, 'type'> &
-    Omit<SnaprollActionDraw, 'type'> &
-    Omit<SnaprollActionUpdate, 'type'>
->
+export type SnaprollAction = (SnaprollActionBegin | SnaprollActionDraw | SnaprollActionUpdate) &
+  SnaprollContext
+
+type SnaprollActionAndContext = Omit<SnaprollContext, 'alpha' | 'timestamp' | 'timestep' | 'type'> &
+  Partial<
+    { type: SnaprollActionType } & Omit<SnaprollActionBegin, 'type'> &
+      Omit<SnaprollActionDraw, 'type'> &
+      Omit<SnaprollActionUpdate, 'type'>
+  >
 
 export interface SnaprollSubscriptionControls {
   pause: () => void
@@ -33,11 +39,12 @@ export interface SnaprollSubscriptionControls {
   unsubscribe: () => void
 }
 
-export type SnaprollSubscription = (action: SnaprollAction) => void
+export type SnaprollSubscription = (action: SnaprollAction) => boolean | undefined
 
 export interface SnaprollOptions {
   fps: number
   timestep: number
+  context?: SnaprollContext
 }
 
 interface SnaprollSubscriptionState {
@@ -46,8 +53,6 @@ interface SnaprollSubscriptionState {
 }
 
 const DEFAULT_TIMESTEP = 1000 / 60
-const FRAME_DELTA_EMA_ALPHA = 0.1
-const FRAME_DELTA_EMA_ALPHA_REVERSE = 0.9
 
 const isPositiveNumber = (input: unknown): input is number =>
   typeof input === 'number' && input > 0 && Number.isFinite(input)
@@ -63,17 +68,21 @@ function assert(condition: boolean, message: string): asserts condition {
   }
 }
 function assertIsFPS(input: unknown): asserts input is number | undefined {
-  assert(isPositiveNumberOrUndefined(input), '[seedpods] fps must be a positive number')
+  assert(isPositiveNumberOrUndefined(input), '[snaproll] fps must be a positive number')
 }
 function assertIsTimestep(input: unknown): asserts input is number | undefined {
-  assert(isPositiveNumberOrUndefined(input), '[seedpods] timestep must be a positive number')
+  assert(isPositiveNumberOrUndefined(input), '[snaproll] timestep must be a positive number')
 }
 
 function assertOptions(
-  options: Partial<Pick<SnaprollOptions, 'fps' | 'timestep'>>,
-): asserts options is Partial<Pick<SnaprollOptions, 'fps' | 'timestep'>> {
+  options: Partial<Pick<SnaprollOptions, 'context' | 'fps' | 'timestep'>>,
+): asserts options is Partial<Pick<SnaprollOptions, 'context' | 'fps' | 'timestep'>> {
   assertIsFPS(options.fps)
   assertIsTimestep(options.timestep)
+  assert(
+    options.context === undefined || typeof options.context === 'object',
+    '[snaproll] context must be an object or undefined.',
+  )
 }
 
 const subscriptionRemove = (
@@ -102,15 +111,22 @@ const STATES = {
 } as const
 
 interface Store {
+  context: SnaprollActionAndContext
   frameDelta: number
-  frameDeltaEMA: number
-  frameDeltaMin: number
+  frameDeltaTarget: number
   frameId: number
-  pool: SnaprollAction_
   state: TypeState
   subscriptions: SnaprollSubscriptionState[]
-  timestampLast: number
+  timestamp: number
   timestep: number
+}
+
+const CONTEXT_EMPTY: Record<keyof Required<SnaprollActionAndContext>, undefined> = {
+  alpha: undefined,
+  timestamp: undefined,
+  timestep: undefined,
+  type: undefined,
+  updateStep: undefined,
 }
 
 const createStore = (
@@ -118,9 +134,6 @@ const createStore = (
   subscriptions: SnaprollSubscriptionState[] = [],
 ): Store => {
   assertOptions(options)
-
-  // An exponential moving average of the frames per second.
-  const frameDeltaEMA = 1000
 
   // The amount of time (in milliseconds) to simulate each time update()
   // runs
@@ -130,19 +143,11 @@ const createStore = (
   const frameDelta = 0
 
   // The timestamp in milliseconds of the last time the main loop was run.
-  const timestampLast = 0
-
-  // The timestamp (in milliseconds) of the last time the `fps` moving
-  // average was updated.
-  // const frameDeltaEMALastUpdate = 0
-
-  // The number of frames delivered since the last time the `fps` moving
-  // average was updated (i.e. since `lastFpsUpdate`).
-  // const frameDeltaEMAFramesSinceLastUpdate = 0
+  const timestamp = 0
 
   // The minimum amount of time in milliseconds that must pass since the last
   // frame was executed before another frame can be executed.
-  const frameDeltaMin = 1000 / (options.fps ?? 60)
+  const frameDeltaTarget = 1000 / (options.fps ?? 60)
 
   const state = options.type ?? TypeState.Paused
 
@@ -150,105 +155,101 @@ const createStore = (
   // stopping the loop.
   const frameId = 0
 
-  const pool: SnaprollAction_ = {
-    delta: undefined,
-    timestamp: undefined,
-    timestep: undefined,
-    type: undefined,
-  }
+  const context: SnaprollActionAndContext =
+    options.context === undefined
+      ? { ...CONTEXT_EMPTY }
+      : Object.assign(options.context, CONTEXT_EMPTY)
 
   return {
+    context,
     frameDelta,
-    frameDeltaEMA,
-    // frameDeltaEMAFramesSinceLastUpdate,
-    // frameDeltaEMALastUpdate,
-    frameDeltaMin,
+    frameDeltaTarget,
     frameId,
-    pool,
     state,
     subscriptions,
-    timestampLast,
+    timestamp,
     timestep,
   }
 }
 
-const createAnimate = (store: Store, callback: () => void) => {
-  const pool = store.pool
+const createAnimate = (store: Store, callback: () => ReturnType<SnaprollSubscription>) => {
+  const context = store.context
 
-  function animate(timestamp: number) {
+  function animate(now: number): void {
     store.frameId = requestAnimationFrame(animate)
-    const { frameDeltaEMA, frameDeltaMin, timestampLast, timestep } = store
-    const frameDelta = timestamp - timestampLast
-    const frameDeltaDeviation = Math.max(0, frameDeltaMin - frameDelta) / frameDeltaEMA
+    const { frameDeltaTarget, timestamp, timestep } = store
+    const frameTime = now - timestamp
 
-    if (timestampLast + frameDeltaDeviation * frameDeltaMin > timestamp) {
+    /* deterministic phase-gate */
+    // if (((now / frameDeltaTarget) | 0) === ((timestamp / frameDeltaTarget) | 0)) {
+    /* modulo phase resampler */
+    if ((now + frameDeltaTarget * 0.5) % frameDeltaTarget > frameTime) {
+      if (__ENVIRONMENT__ !== 'production') {
+        performance.mark('snaproll-animate-frame-drop')
+      }
       return
     }
 
-    if (__ENVIRONMENT__ !== 'production') {
-      performance.mark('snaproll-animate-start')
+    context.type = SnaprollActionType.Begin
+    context.timestamp = now
+
+    if (callback() === true) {
+      if (__ENVIRONMENT__ !== 'production') {
+        performance.mark('snaproll-animate-frame-drop')
+      }
+      return
     }
 
-    store.frameDeltaEMA =
-      1 / (FRAME_DELTA_EMA_ALPHA / frameDelta + FRAME_DELTA_EMA_ALPHA_REVERSE / frameDeltaEMA)
+    store.frameDelta += frameTime
+    store.timestamp = now
 
-    store.frameDelta += frameDelta
-    store.timestampLast = timestamp
+    context.type = SnaprollActionType.Update
+    context.timestep = timestep
 
-    pool.type = SnaprollActionType.Begin
-    pool.timestamp = timestamp
+    const updateSteps = (store.frameDelta / timestep) | 0
 
+    for (let index = updateSteps; index > 0; index--) {
+      context.updateStep = index
+
+      if (callback() === true) {
+        if (__ENVIRONMENT__ !== 'production') {
+          performance.mark('snaproll-animate-frame-drop')
+        }
+
+        store.frameDelta = 0
+        return
+      } else {
+        store.frameDelta -= timestep
+      }
+    }
+
+    context.type = SnaprollActionType.Draw
+    context.alpha = store.frameDelta / timestep
     callback()
-
-    while (store.frameDelta >= timestep) {
-      pool.type = SnaprollActionType.Update
-      pool.timestep = timestep
-      callback()
-
-      store.frameDelta -= timestep
-    }
-
-    pool.type = SnaprollActionType.Draw
-    pool.delta = store.frameDelta
-    callback()
-
-    if (__ENVIRONMENT__ !== 'production') {
-      performance.measure('snaproll-animate', {
-        end: performance.now(),
-        start: 'snaproll-animate-start',
-      })
-    }
   }
 
   return animate
 }
 
-// const frameDeltaEMAUpdateInterval = 300
-// if (timestamp > state.frameDeltaEMALastUpdate + frameDeltaEMAUpdateInterval) {
-//   state.frameDeltaEMA =
-//     1 /
-//     ((frameDeltaEMAAlpha * state.frameDeltaEMAFramesSinceLastUpdate) /
-//       (timestamp - state.frameDeltaEMALastUpdate) +
-//       (1 - frameDeltaEMAAlpha) / state.frameDeltaEMA)
-//
-//   state.frameDeltaEMALastUpdate = timestamp
-//   state.frameDeltaEMAFramesSinceLastUpdate = 0
-// }
-// state.frameDeltaEMAFramesSinceLastUpdate++
-
 export class Snaproll {
-  private readonly callback = () => {
+  private readonly callback = (): ReturnType<SnaprollSubscription> => {
     const reference = this.store.subscriptions
     const length = reference.length
-    const action = this.store.pool
+    const action = this.store.context
+
+    let state: ReturnType<SnaprollSubscription> = undefined
 
     for (let index = 0; index < length; index++) {
       const subscription = reference[index]
 
       if (subscription.active) {
-        subscription.value(action as SnaprollAction)
+        if (subscription.value(action as SnaprollAction) === true) {
+          state = true
+        }
       }
     }
+
+    return state
   }
 
   private store: Store
@@ -282,29 +283,43 @@ export class Snaproll {
     store.state = TypeState.Paused
   }
 
-  public reset(options: { keepSubscriptions?: boolean } & Partial<SnaprollOptions> = {}) {
+  public reset(
+    options: { keepContext?: boolean; keepSubscriptions?: boolean } & Partial<SnaprollOptions> = {},
+  ) {
     const previousStore = this.store
     const keepSubscriptions = options?.keepSubscriptions !== false
+    const keepContext = options?.keepContext !== false
+    const hasContext = options?.context !== undefined
 
     // preserve the options
     this.store = createStore(
       {
-        fps: options.fps ?? previousStore.frameDeltaEMA,
+        fps: options.fps ?? 1000 / previousStore.frameDeltaTarget,
         timestep: options.timestep ?? previousStore.timestep,
         type: previousStore.state,
+        /**
+         * Determines the context to use
+         *
+         * @remarks
+         * The context resolution follows these rules:
+         * - If keepContext=true and hasContext=true: Merges new context with existing store context
+         * - If keepContext=false and hasContext=true: Uses only the provided new context
+         * - If keepContext=true and hasContext=false: Uses only the existing store context
+         * - If keepContext=false and hasContext=false: No context (undefined)
+         */
+        context:
+          keepContext && hasContext
+            ? // eslint-disable-next-line typescript/no-non-null-assertion
+              Object.assign(options.context!, this.store.context)
+            : hasContext
+              ? // eslint-disable-next-line typescript/no-non-null-assertion
+                options.context!
+              : keepContext
+                ? this.store.context
+                : undefined,
       },
       keepSubscriptions ? [...previousStore.subscriptions] : undefined,
     )
-  }
-
-  public resetFrameDelta() {
-    const oldFrameDelta = this.store.frameDelta
-    this.store.frameDelta = 0
-
-    // The cumulative amount of elapsed time in milliseconds that has not yet
-    // been simulated, but is being discarded as a result of calling this
-    // function.
-    return oldFrameDelta
   }
 
   public resume() {
@@ -318,10 +333,8 @@ export class Snaproll {
 
     if (store.state === TypeState.Active) {
       store.frameId = requestAnimationFrame((timestamp) => {
-        store.timestampLast = timestamp
-        // state.frameDeltaEMALastUpdate = timestamp
-        // state.frameDeltaEMAFramesSinceLastUpdate = 0
-
+        store.frameDelta = 0
+        store.timestamp = timestamp
         store.frameId = requestAnimationFrame(createAnimate(store, this.callback))
       })
     }
@@ -386,13 +399,13 @@ export class Snaproll {
   }
 
   public get fps() {
-    return this.store.frameDeltaEMA !== 0 ? 1000 / this.store.frameDeltaEMA : 0
+    return 1000 / this.store.frameDeltaTarget
   }
 
   public set fps(value: number) {
     assertIsFPS(value)
 
-    this.store.frameDeltaMin = 1000 / value
+    this.store.frameDeltaTarget = 1000 / value
   }
 
   public get state() {
