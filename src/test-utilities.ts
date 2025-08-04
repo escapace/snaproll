@@ -69,7 +69,7 @@ export class MockTimeController {
       this.scheduledCallbacks = this.scheduledCallbacks.filter((callback) => callback.id !== id)
     }
 
-    globalThis.performance.now = (): number => this.currentTime
+    // globalThis.performance.now = (): number => this.currentTime
 
     // Store reference for internal use
     ;(

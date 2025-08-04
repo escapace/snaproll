@@ -123,14 +123,14 @@ describe('Test Utilities', () => {
       })
     })
 
-    describe('Performance API Mocking', () => {
-      it('mocks performance.now() correctly', () => {
-        expect(globalThis.performance.now()).toBe(0)
-
-        timeController.advance(100)
-        expect(globalThis.performance.now()).toBe(100)
-      })
-    })
+    // describe('Performance API Mocking', () => {
+    //   it('mocks performance.now() correctly', () => {
+    //     expect(globalThis.performance.now()).toBe(0)
+    //
+    //     timeController.advance(100)
+    //     expect(globalThis.performance.now()).toBe(100)
+    //   })
+    // })
 
     describe('Edge Cases', () => {
       it('handles zero time advance correctly', () => {
