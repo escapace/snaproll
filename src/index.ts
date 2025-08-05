@@ -49,7 +49,6 @@ export interface SnaprollOptions {
 
 interface SnaprollSubscriptionState {
   active: boolean
-  value: SnaprollSubscription
 }
 
 const DEFAULT_TIMESTEP = 1000 / 60
@@ -85,18 +84,16 @@ function assertOptions(
   )
 }
 
-const subscriptionRemove = (
-  subscription: SnaprollSubscription,
-  subscriptions: SnaprollSubscriptionState[],
-): SnaprollSubscriptionState[] => subscriptions.filter((element) => element.value !== subscription)
-
-const subscriptionFind = (
-  subscription: SnaprollSubscription,
-  subscriptions: SnaprollSubscriptionState[],
-) => subscriptions.find((element) => element.value === subscription)
-
-const subscriptionActive = (subscriptions: SnaprollSubscriptionState[]) =>
-  subscriptions.some((element) => element.active)
+const subscriptionActive = (
+  subscriptionStateMap: Map<SnaprollSubscription, SnaprollSubscriptionState>,
+) => {
+  for (const state of subscriptionStateMap.values()) {
+    if (state.active) {
+      return true
+    }
+  }
+  return false
+}
 
 const enum TypeState {
   Active = 0,
@@ -114,9 +111,11 @@ interface Store {
   context: SnaprollActionAndContext
   frameDelta: number
   frameDeltaTarget: number
+  frameDeltaTargetHalf: number
   frameId: number
   state: TypeState
-  subscriptions: SnaprollSubscriptionState[]
+  subscriptions: SnaprollSubscription[]
+  subscriptionStateMap: Map<SnaprollSubscription, SnaprollSubscriptionState>
   timestamp: number
   timestep: number
 }
@@ -131,7 +130,7 @@ const CONTEXT_EMPTY: Record<keyof Required<SnaprollActionAndContext>, undefined>
 
 const createStore = (
   options: { type?: TypeState } & Partial<SnaprollOptions>,
-  subscriptions: SnaprollSubscriptionState[] = [],
+  subscriptions: Array<[SnaprollSubscription, SnaprollSubscriptionState]> = [],
 ): Store => {
   assertOptions(options)
 
@@ -148,6 +147,7 @@ const createStore = (
   // The minimum amount of time in milliseconds that must pass since the last
   // frame was executed before another frame can be executed.
   const frameDeltaTarget = 1000 / (options.fps ?? 60)
+  const frameDeltaTargetHalf = frameDeltaTarget * 0.5
 
   const state = options.type ?? TypeState.Paused
 
@@ -160,13 +160,25 @@ const createStore = (
       ? { ...CONTEXT_EMPTY }
       : Object.assign(options.context, CONTEXT_EMPTY)
 
+  const activeSubscriptions: SnaprollSubscription[] = []
+  const subscriptionStateMap = new Map<SnaprollSubscription, SnaprollSubscriptionState>()
+
+  for (const [subscriptionFunction, subscriptionState] of subscriptions) {
+    subscriptionStateMap.set(subscriptionFunction, subscriptionState)
+    if (subscriptionState.active) {
+      activeSubscriptions.push(subscriptionFunction)
+    }
+  }
+
   return {
     context,
     frameDelta,
     frameDeltaTarget,
+    frameDeltaTargetHalf,
     frameId,
     state,
-    subscriptions,
+    subscriptions: activeSubscriptions,
+    subscriptionStateMap,
     timestamp,
     timestep,
   }
@@ -177,13 +189,13 @@ const createAnimate = (store: Store, callback: () => ReturnType<SnaprollSubscrip
 
   function animate(now: number): void {
     store.frameId = requestAnimationFrame(animate)
-    const { frameDeltaTarget, timestamp, timestep } = store
+    const { frameDeltaTarget, frameDeltaTargetHalf, timestamp, timestep } = store
     const frameTime = now - timestamp
 
     /* deterministic phase-gate */
     // if (((now / frameDeltaTarget) | 0) === ((timestamp / frameDeltaTarget) | 0)) {
     /* modulo phase resampler */
-    if ((now + frameDeltaTarget * 0.5) % frameDeltaTarget > frameTime) {
+    if ((now + frameDeltaTargetHalf) % frameDeltaTarget > frameTime) {
       if (__ENVIRONMENT__ !== 'production') {
         performance.mark('snaproll-animate-frame-drop')
       }
@@ -218,9 +230,9 @@ const createAnimate = (store: Store, callback: () => ReturnType<SnaprollSubscrip
 
         store.frameDelta = 0
         return
-      } else {
-        store.frameDelta -= timestep
       }
+
+      store.frameDelta -= timestep
     }
 
     context.type = SnaprollActionType.Draw
@@ -233,23 +245,36 @@ const createAnimate = (store: Store, callback: () => ReturnType<SnaprollSubscrip
 
 export class Snaproll {
   private readonly callback = (): ReturnType<SnaprollSubscription> => {
-    const reference = this.store.subscriptions
-    const length = reference.length
-    const action = this.store.context
+    const { context, subscriptions: activeSubscriptions } = this.store
+    const length = activeSubscriptions.length
+    const action = context
 
     let state: ReturnType<SnaprollSubscription> = undefined
 
     for (let index = 0; index < length; index++) {
-      const subscription = reference[index]
+      const subscription = activeSubscriptions[index]
 
-      if (subscription.active) {
-        if (subscription.value(action as SnaprollAction) === true) {
-          state = true
-        }
+      if (subscription(action as SnaprollAction) === true) {
+        state = true
       }
     }
 
     return state
+  }
+
+  /**
+   * Rebuilds the active subscriptions array from the subscription state map.
+   *
+   * @remarks
+   * Map preserves insertion order, ensuring subscriptions are processed in the order they were added.
+   */
+  private updateSubscriptions(): void {
+    this.store.subscriptions.length = 0
+    for (const [subscription, state] of this.store.subscriptionStateMap) {
+      if (state.active) {
+        this.store.subscriptions.push(subscription)
+      }
+    }
   }
 
   private store: Store
@@ -261,7 +286,7 @@ export class Snaproll {
   public idle() {
     const store = this.store
 
-    if (store.state !== TypeState.Active || subscriptionActive(store.subscriptions)) {
+    if (store.state !== TypeState.Active || subscriptionActive(store.subscriptionStateMap)) {
       return
     }
 
@@ -318,7 +343,7 @@ export class Snaproll {
                 ? this.store.context
                 : undefined,
       },
-      keepSubscriptions ? [...previousStore.subscriptions] : undefined,
+      keepSubscriptions ? Array.from(previousStore.subscriptionStateMap.entries()) : undefined,
     )
   }
 
@@ -329,7 +354,7 @@ export class Snaproll {
       return
     }
 
-    store.state = subscriptionActive(store.subscriptions) ? TypeState.Active : TypeState.Idle
+    store.state = subscriptionActive(store.subscriptionStateMap) ? TypeState.Active : TypeState.Idle
 
     if (store.state === TypeState.Active) {
       store.frameId = requestAnimationFrame((timestamp) => {
@@ -344,56 +369,51 @@ export class Snaproll {
     value: SnaprollSubscription,
     options?: { immediate?: boolean },
   ): SnaprollSubscriptionControls {
-    // eslint-disable-next-line typescript/no-this-alias
-    const self = this
-    const state = self.store
+    let subscriptionState = this.store.subscriptionStateMap.get(value)
 
-    if (subscriptionFind(value, state.subscriptions) === undefined) {
-      const reference = state.subscriptions
+    if (subscriptionState === undefined) {
       const active = options?.immediate !== false
-      state.subscriptions = [...reference, { active, value }]
+      subscriptionState = { active }
 
-      if (state.state === TypeState.Idle) {
-        self.resume()
+      this.store.subscriptionStateMap.set(value, subscriptionState)
+      this.updateSubscriptions()
+
+      if (this.store.state === TypeState.Idle) {
+        this.resume()
       }
     }
 
     return {
-      pause() {
-        const subscriptions = state.subscriptions
-        const subscription = subscriptionFind(value, subscriptions)
-
-        if (subscription === undefined) {
+      pause: () => {
+        if (subscriptionState === undefined) {
           return
         }
 
-        subscription.active = false
-        self.idle()
+        subscriptionState.active = false
+        this.updateSubscriptions()
+        this.idle()
       },
-      resume() {
-        const subscriptions = state.subscriptions
-        const subscription = subscriptionFind(value, subscriptions)
-
-        if (subscription === undefined) {
+      resume: () => {
+        if (subscriptionState === undefined) {
           return
         }
 
-        subscription.active = true
+        subscriptionState.active = true
+        this.updateSubscriptions()
 
-        if (state.state === TypeState.Idle) {
-          self.resume()
+        if (this.store.state === TypeState.Idle) {
+          this.resume()
         }
       },
-      unsubscribe() {
-        const subscriptions = state.subscriptions
-        const subscription = subscriptionFind(value, subscriptions)
-
-        if (subscription === undefined) {
+      unsubscribe: () => {
+        if (subscriptionState === undefined) {
           return
         }
 
-        state.subscriptions = subscriptionRemove(value, subscriptions)
-        self.idle()
+        subscriptionState = undefined
+        this.store.subscriptionStateMap.delete(value)
+        this.updateSubscriptions()
+        this.idle()
       },
     }
   }
@@ -406,6 +426,7 @@ export class Snaproll {
     assertIsFPS(value)
 
     this.store.frameDeltaTarget = 1000 / value
+    this.store.frameDeltaTargetHalf = this.store.frameDeltaTarget * 0.5
   }
 
   public get state() {

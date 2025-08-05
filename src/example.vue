@@ -88,6 +88,44 @@ function updateBox(state: BoxState, deltaTime: number): void {
   state.velocity = bouncedOdd ? -v0 : v0 // keep speed, maybe flip
 }
 
+class LerpSnap {
+  private snapped: number | null = null;
+  private isSnapped = false;
+
+  constructor(
+    private step    = 0.05,     // grid step (units), not pixels
+    private snapIn  = 0.0125,     // ≥ drift to lock onto a *new* step
+    private snapOut = 0.0025     // ≤ drift to stay locked
+  ) {}
+
+  private snap(value: number): number {
+    return Math.round(value / this.step) * this.step;
+  }
+
+  update(a: number, b: number, t: number): { real: number; draw: number } {
+    const real = (1 - t) * a + t * b;
+
+    if (this.snapped === null) {          // first call
+      this.snapped  = this.snap(real);
+      this.isSnapped = true;
+      return { real, draw: this.snapped };
+    }
+
+    const delta = real - this.snapped;
+
+    if (this.isSnapped && Math.abs(delta) < this.snapOut) {
+      return { real, draw: this.snapped };      // stay locked
+    }
+    if (!this.isSnapped && Math.abs(delta) < this.snapIn) {
+      return { real, draw: this.snapped };      // keep floating
+    }
+
+    this.snapped   = this.snap(real);           // lock to next step
+    this.isSnapped = true;
+    return { real, draw: this.snapped };
+  }
+}
+
 const boxes = range(100).map((_, index) => {
   const position = Math.random() * 100
   const box: BoxState = {
@@ -98,6 +136,8 @@ const boxes = range(100).map((_, index) => {
     width: 5 + 20 * Math.random(),
     velocity: Math.random() / 100,
   }
+
+  // const snapper = new LerpSnap()
 
   const subscription: SnaprollSubscription = (action) => {
     switch (action.type) {
@@ -116,12 +156,19 @@ const boxes = range(100).map((_, index) => {
           console.log(action.alpha)
         }
 
-        boxRefs.value[box.index].style.transform = `translateX(${lerp(
+        const value = lerp(
           box.lastPosition,
           box.position,
           action.alpha,
           // 1 - Math.pow(0.25, action.alpha),
-        )}vw)`
+        )
+
+        // const { draw: value } = snapper.update(
+        //   box.lastPosition,
+        //   box.position,
+        //   action.alpha,
+        // )
+        boxRefs.value[box.index].style.transform = `translateX(${value}vw)`
 
         break
     }

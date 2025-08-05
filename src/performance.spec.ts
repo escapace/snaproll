@@ -41,8 +41,8 @@ describe('Core Animation Loop Performance', () => {
     'measures performance for different fps and subscription configurations',
     { timeout: 30_000 },
     () => {
-      const targetFrames = 100
-      const iterations = 10_000
+      const targetFrames = 1000
+      const iterations = 1000
 
       const fpsConfigs = [
         { name: '30fps snaproll, 30fps timeController', snaprollFps: 30, timeControllerFps: 30 },
