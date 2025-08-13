@@ -364,7 +364,7 @@ snaproll.subscribe((context) => {
 
 ## Examples
 
-See the `example/` directory for complete working examples:
+View examples at https://escapace.github.io/snaproll/ or see the `examples/` directory:
 
 - **Bouncing Balls** (`canvas-2d-bouncing-balls.vue`) — Canvas animation with interpolated movement
 - **Moving Rectangles** (`css-transform-rectangles.vue`) — CSS transform animation with smooth transitions

@@ -50,12 +50,6 @@
   "homepage": "https://github.com/escapace/snaproll#readme",
   "license": "MPL-2.0",
   "module": "./lib/browser/index.js",
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild",
-      "lefthook"
-    ]
-  },
   "private": false,
   "publishConfig": {
     "access": "public",
