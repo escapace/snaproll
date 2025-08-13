@@ -15,7 +15,7 @@ export interface SnaprollActionUpdate extends Omit<SnaprollActionBegin, 'type'> 
   updateStep: number
 }
 
-export interface SnaprollActionDraw extends Omit<SnaprollActionUpdate, 'index' | 'type'> {
+export interface SnaprollActionDraw extends Omit<SnaprollActionUpdate, 'type'> {
   alpha: number
   type: SnaprollActionType.Draw
 }
@@ -42,8 +42,8 @@ export interface SnaprollSubscriptionControls {
 export type SnaprollSubscription = (action: SnaprollAction) => boolean | undefined
 
 export interface SnaprollOptions {
-  fps: number
-  timestep: number
+  drawRate: number
+  updateRate: number
   context?: SnaprollContext
 }
 
@@ -51,7 +51,8 @@ interface SnaprollSubscriptionState {
   active: boolean
 }
 
-const DEFAULT_TIMESTEP = 1000 / 60
+const DEFAULT_UPDATE_RATE = 60
+const DEFAULT_DRAW_RATE = 60
 
 const isPositiveNumber = (input: unknown): input is number =>
   typeof input === 'number' && input > 0 && Number.isFinite(input)
@@ -66,18 +67,18 @@ function assert(condition: boolean, message: string): asserts condition {
     throw new Error(message)
   }
 }
-function assertIsFPS(input: unknown): asserts input is number | undefined {
-  assert(isPositiveNumberOrUndefined(input), '[snaproll] fps must be a positive number')
+function assertIsDrawRate(input: unknown): asserts input is number | undefined {
+  assert(isPositiveNumberOrUndefined(input), '[snaproll] draw rate must be a positive number')
 }
-function assertIsTimestep(input: unknown): asserts input is number | undefined {
+function assertIsUpdateRate(input: unknown): asserts input is number | undefined {
   assert(isPositiveNumberOrUndefined(input), '[snaproll] timestep must be a positive number')
 }
 
 function assertOptions(
-  options: Partial<Pick<SnaprollOptions, 'context' | 'fps' | 'timestep'>>,
-): asserts options is Partial<Pick<SnaprollOptions, 'context' | 'fps' | 'timestep'>> {
-  assertIsFPS(options.fps)
-  assertIsTimestep(options.timestep)
+  options: Partial<Pick<SnaprollOptions, 'context' | 'drawRate' | 'updateRate'>>,
+): asserts options is Partial<Pick<SnaprollOptions, 'context' | 'drawRate' | 'updateRate'>> {
+  assertIsDrawRate(options.drawRate)
+  assertIsUpdateRate(options.updateRate)
   assert(
     options.context === undefined || typeof options.context === 'object',
     '[snaproll] context must be an object or undefined.',
@@ -109,15 +110,18 @@ const STATES = {
 
 interface Store {
   context: SnaprollActionAndContext
-  frameDelta: number
-  frameDeltaTarget: number
-  frameDeltaTargetHalf: number
-  frameId: number
+  drawRate: number
+  frameIndex: number
+  pendingAnimationFrame: number
+  pendingTime: number
+  quantizationGrid: number
   state: TypeState
   subscriptions: SnaprollSubscription[]
   subscriptionStateMap: Map<SnaprollSubscription, SnaprollSubscriptionState>
+  targetFrameTime: number
   timestamp: number
   timestep: number
+  updateRate: number
 }
 
 const CONTEXT_EMPTY: Record<keyof Required<SnaprollActionAndContext>, undefined> = {
@@ -129,58 +133,95 @@ const CONTEXT_EMPTY: Record<keyof Required<SnaprollActionAndContext>, undefined>
 }
 
 const createStore = (
-  options: { type?: TypeState } & Partial<SnaprollOptions>,
-  subscriptions: Array<[SnaprollSubscription, SnaprollSubscriptionState]> = [],
+  options: Partial<
+    { subscriptions: Array<[SnaprollSubscription, SnaprollSubscriptionState]> } & Pick<
+      Store,
+      'state'
+    > &
+      SnaprollOptions
+  >,
+  // previous = [],
 ): Store => {
   assertOptions(options)
 
   // The amount of time (in milliseconds) to simulate each time update()
   // runs
-  const timestep = options.timestep ?? DEFAULT_TIMESTEP
-
-  // The cumulative amount of in-app time that hasn't been simulated yet.
-  const frameDelta = 0
+  const updateRate = options.updateRate ?? DEFAULT_UPDATE_RATE
 
   // The timestamp in milliseconds of the last time the main loop was run.
   const timestamp = 0
 
   // The minimum amount of time in milliseconds that must pass since the last
   // frame was executed before another frame can be executed.
-  const frameDeltaTarget = 1000 / (options.fps ?? 60)
-  const frameDeltaTargetHalf = frameDeltaTarget * 0.5
+  const drawRate = options.drawRate ?? DEFAULT_DRAW_RATE
 
-  const state = options.type ?? TypeState.Paused
+  const state = options.state ?? TypeState.Paused
 
   // The ID of the currently executing frame. Used to cancel frames when
   // stopping the loop.
-  const frameId = 0
+  const pendingAnimationFrame = 0
 
   const context: SnaprollActionAndContext =
     options.context === undefined
       ? { ...CONTEXT_EMPTY }
       : Object.assign(options.context, CONTEXT_EMPTY)
 
-  const activeSubscriptions: SnaprollSubscription[] = []
+  const subscriptions: SnaprollSubscription[] = []
   const subscriptionStateMap = new Map<SnaprollSubscription, SnaprollSubscriptionState>()
 
-  for (const [subscriptionFunction, subscriptionState] of subscriptions) {
-    subscriptionStateMap.set(subscriptionFunction, subscriptionState)
-    if (subscriptionState.active) {
-      activeSubscriptions.push(subscriptionFunction)
+  if (options.subscriptions !== undefined) {
+    for (const [subscriptionFunction, subscriptionState] of options.subscriptions) {
+      subscriptionStateMap.set(subscriptionFunction, subscriptionState)
+      if (subscriptionState.active) {
+        subscriptions.push(subscriptionFunction)
+      }
     }
   }
 
+  const frameIndex = 0
+  const pendingTime = 0
+
   return {
     context,
-    frameDelta,
-    frameDeltaTarget,
-    frameDeltaTargetHalf,
-    frameId,
+    frameIndex,
+    pendingAnimationFrame,
+    pendingTime,
     state,
-    subscriptions: activeSubscriptions,
+    subscriptions,
     subscriptionStateMap,
     timestamp,
+    ...createDrawRateStorePartial(drawRate),
+    ...createUpdateRateStorePartial(updateRate),
+  }
+}
+
+const createUpdateRateStorePartial = (
+  updateRate: number,
+): Pick<Store, 'timestep' | 'updateRate'> => {
+  const timestep = 1000 / updateRate
+
+  return {
     timestep,
+    updateRate,
+  }
+}
+
+const createDrawRateStorePartial = (
+  drawRate: number,
+): Pick<Store, 'drawRate' | 'quantizationGrid' | 'targetFrameTime'> => {
+  /**
+   * Power-of-two temporal quantization lattice for interpolation discretization.
+   *
+   * @remarks
+   * Applied via: floor(value * GRID) / GRID
+   */
+  const quantizationGrid = 1 << Math.ceil(Math.log2(drawRate))
+  const targetFrameTime = 1000 / drawRate
+
+  return {
+    drawRate,
+    quantizationGrid,
+    targetFrameTime,
   }
 }
 
@@ -188,20 +229,20 @@ const createAnimate = (store: Store, callback: () => ReturnType<SnaprollSubscrip
   const context = store.context
 
   function animate(now: number): void {
-    store.frameId = requestAnimationFrame(animate)
-    const { frameDeltaTarget, frameDeltaTargetHalf, timestamp, timestep } = store
-    const frameTime = now - timestamp
+    store.pendingAnimationFrame = requestAnimationFrame(animate)
+    const frameIndex = (now / store.targetFrameTime) | 0
 
+    // /* modulo phase resampler */
+    // if ((now + targetFrameTime * 0.5) % targetFrameTime > deltaTime) {
     /* deterministic phase-gate */
-    // if (((now / frameDeltaTarget) | 0) === ((timestamp / frameDeltaTarget) | 0)) {
-    /* modulo phase resampler */
-    if ((now + frameDeltaTargetHalf) % frameDeltaTarget > frameTime) {
+    if (frameIndex === store.frameIndex) {
       if (__ENVIRONMENT__ !== 'production') {
         performance.mark('snaproll-animate-frame-drop')
       }
       return
     }
 
+    store.frameIndex = frameIndex
     context.type = SnaprollActionType.Begin
     context.timestamp = now
 
@@ -212,32 +253,50 @@ const createAnimate = (store: Store, callback: () => ReturnType<SnaprollSubscrip
       return
     }
 
-    store.frameDelta += frameTime
+    const deltaTime = now - store.timestamp
+    let pendingTime = store.pendingTime + deltaTime
     store.timestamp = now
 
+    const timestep = store.timestep
     context.type = SnaprollActionType.Update
     context.timestep = timestep
 
-    const updateSteps = (store.frameDelta / timestep) | 0
+    let updateStep = (pendingTime / timestep) | 0
 
-    for (let index = updateSteps; index > 0; index--) {
-      context.updateStep = index
+    while (updateStep > 0) {
+      context.updateStep = updateStep
 
       if (callback() === true) {
         if (__ENVIRONMENT__ !== 'production') {
           performance.mark('snaproll-animate-frame-drop')
         }
 
-        store.frameDelta = 0
+        store.pendingTime = 0
         return
       }
 
-      store.frameDelta -= timestep
+      pendingTime -= timestep
+      updateStep--
     }
 
+    store.pendingTime = pendingTime
     context.type = SnaprollActionType.Draw
-    context.alpha = store.frameDelta / timestep
+    /**
+     * quantizationGrid is a user set temporal frequency in hertz, same as frames per
+     * second. (60 by default)
+     */
+    const quantizationGrid = store.quantizationGrid
+    const alpha = pendingTime / timestep
+    context.alpha = ((alpha * quantizationGrid) | 0) / quantizationGrid
     callback()
+
+    if (__ENVIRONMENT__ !== 'production') {
+      const interpolationAlphaJitter = (context.alpha - alpha) * timestep
+
+      performance.mark('snaproll-animate-frame-jitter', {
+        detail: { deltaTime, interpolationAlphaJitter, quantizationGrid },
+      })
+    }
   }
 
   return animate
@@ -283,14 +342,14 @@ export class Snaproll {
     this.store = createStore(options)
   }
 
-  public idle() {
+  private idle() {
     const store = this.store
 
     if (store.state !== TypeState.Active || subscriptionActive(store.subscriptionStateMap)) {
       return
     }
 
-    cancelAnimationFrame(store.frameId)
+    cancelAnimationFrame(store.pendingAnimationFrame)
     store.state = TypeState.Idle
   }
 
@@ -302,7 +361,7 @@ export class Snaproll {
     }
 
     if (store.state === TypeState.Active) {
-      cancelAnimationFrame(store.frameId)
+      cancelAnimationFrame(store.pendingAnimationFrame)
     }
 
     store.state = TypeState.Paused
@@ -316,35 +375,42 @@ export class Snaproll {
     const keepContext = options?.keepContext !== false
     const hasContext = options?.context !== undefined
 
+    const previousState = previousStore.state
+
+    this.pause()
+
     // preserve the options
-    this.store = createStore(
-      {
-        fps: options.fps ?? 1000 / previousStore.frameDeltaTarget,
-        timestep: options.timestep ?? previousStore.timestep,
-        type: previousStore.state,
-        /**
-         * Determines the context to use
-         *
-         * @remarks
-         * The context resolution follows these rules:
-         * - If keepContext=true and hasContext=true: Merges new context with existing store context
-         * - If keepContext=false and hasContext=true: Uses only the provided new context
-         * - If keepContext=true and hasContext=false: Uses only the existing store context
-         * - If keepContext=false and hasContext=false: No context (undefined)
-         */
-        context:
-          keepContext && hasContext
+    this.store = createStore({
+      drawRate: options.drawRate ?? previousStore.drawRate,
+      updateRate: options.updateRate ?? previousStore.updateRate,
+      /**
+       * Determines the context to use
+       *
+       * @remarks
+       * The context resolution follows these rules:
+       * - If keepContext=true and hasContext=true: Uses provided context object, assigns existing store context to provided context object
+       * - If keepContext=false and hasContext=true: Uses the provided context object
+       * - If keepContext=true and hasContext=false: Uses the existing context object
+       * - If keepContext=false and hasContext=false: Uses a new empty context object
+       */
+      context:
+        keepContext && hasContext
+          ? // eslint-disable-next-line typescript/no-non-null-assertion
+            Object.assign(options.context!, this.store.context)
+          : hasContext
             ? // eslint-disable-next-line typescript/no-non-null-assertion
-              Object.assign(options.context!, this.store.context)
-            : hasContext
-              ? // eslint-disable-next-line typescript/no-non-null-assertion
-                options.context!
-              : keepContext
-                ? this.store.context
-                : undefined,
-      },
-      keepSubscriptions ? Array.from(previousStore.subscriptionStateMap.entries()) : undefined,
-    )
+              options.context!
+            : keepContext
+              ? this.store.context
+              : undefined,
+      subscriptions: keepSubscriptions
+        ? Array.from(previousStore.subscriptionStateMap.entries())
+        : undefined,
+    })
+
+    if (previousState !== TypeState.Paused) {
+      this.resume()
+    }
   }
 
   public resume() {
@@ -357,10 +423,11 @@ export class Snaproll {
     store.state = subscriptionActive(store.subscriptionStateMap) ? TypeState.Active : TypeState.Idle
 
     if (store.state === TypeState.Active) {
-      store.frameId = requestAnimationFrame((timestamp) => {
-        store.frameDelta = 0
-        store.timestamp = timestamp
-        store.frameId = requestAnimationFrame(createAnimate(store, this.callback))
+      store.pendingAnimationFrame = requestAnimationFrame((now) => {
+        store.pendingTime = 0
+        store.timestamp = now
+        store.frameIndex = (now / store.targetFrameTime) | 0
+        store.pendingAnimationFrame = requestAnimationFrame(createAnimate(store, this.callback))
       })
     }
   }
@@ -418,28 +485,27 @@ export class Snaproll {
     }
   }
 
-  public get fps() {
-    return 1000 / this.store.frameDeltaTarget
-  }
-
-  public set fps(value: number) {
-    assertIsFPS(value)
-
-    this.store.frameDeltaTarget = 1000 / value
-    this.store.frameDeltaTargetHalf = this.store.frameDeltaTarget * 0.5
-  }
-
   public get state() {
     return STATES[this.store.state]
   }
 
-  public get timestep() {
-    return this.store.timestep
+  public get updateRate() {
+    return this.store.updateRate
   }
 
-  public set timestep(value: number) {
-    assertIsTimestep(value)
+  public set updateRate(value: number) {
+    assertIsUpdateRate(value)
 
-    this.store.timestep = value
+    Object.assign(this.store, createUpdateRateStorePartial(value))
+  }
+
+  public get drawRate() {
+    return this.store.drawRate
+  }
+
+  public set drawRate(value: number) {
+    assertIsDrawRate(value)
+
+    Object.assign(this.store, createDrawRateStorePartial(value))
   }
 }

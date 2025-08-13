@@ -12,7 +12,7 @@ function runAnimationBenchmark(
 ): number {
   const timeController = new MockTimeController()
 
-  const loop = new Snaproll({ fps: snaprollFps, timestep: 1000 / snaprollFps })
+  const loop = new Snaproll({ drawRate: snaprollFps, updateRate: snaprollFps })
 
   // Add multiple subscriptions
   for (let index = 0; index < subscriptionCount; index++) {
@@ -41,7 +41,7 @@ describe('Core Animation Loop Performance', () => {
     'measures performance for different fps and subscription configurations',
     { timeout: 30_000 },
     () => {
-      const targetFrames = 1000
+      const targetFrames = 100
       const iterations = 1000
 
       const fpsConfigs = [

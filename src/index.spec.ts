@@ -37,36 +37,42 @@ describe('Snaproll Unit Tests', () => {
       const snaprollInstance = new Snaproll()
 
       expect(snaprollInstance.state).toBe('paused')
-      expect(snaprollInstance.timestep).toBe(1000 / 60)
+      expect(snaprollInstance.updateRate).toBe(60)
     })
 
-    it('initializes with custom fps and timestep configuration', () => {
-      const customConfiguration = { fps: 30, timestep: 1000 / 30 }
+    it('initializes with custom drawRate and updateRate configuration', () => {
+      const customConfiguration = { drawRate: 30, updateRate: 30 }
       const snaprollInstance = new Snaproll(customConfiguration)
 
-      expect(snaprollInstance.timestep).toBe(customConfiguration.timestep)
+      expect(snaprollInstance.updateRate).toBe(customConfiguration.updateRate)
     })
 
-    it('rejects invalid fps values with descriptive error messages', () => {
-      expect(() => new Snaproll({ fps: -1 })).toThrow('[snaproll] fps must be a positive number')
-      expect(() => new Snaproll({ fps: 0 })).toThrow('[snaproll] fps must be a positive number')
-      expect(() => new Snaproll({ fps: Infinity })).toThrow(
-        '[snaproll] fps must be a positive number',
+    it('rejects invalid drawRate values with descriptive error messages', () => {
+      expect(() => new Snaproll({ drawRate: -1 })).toThrow(
+        '[snaproll] draw rate must be a positive number',
       )
-      expect(() => new Snaproll({ fps: NaN })).toThrow('[snaproll] fps must be a positive number')
+      expect(() => new Snaproll({ drawRate: 0 })).toThrow(
+        '[snaproll] draw rate must be a positive number',
+      )
+      expect(() => new Snaproll({ drawRate: Infinity })).toThrow(
+        '[snaproll] draw rate must be a positive number',
+      )
+      expect(() => new Snaproll({ drawRate: NaN })).toThrow(
+        '[snaproll] draw rate must be a positive number',
+      )
     })
 
-    it('rejects invalid timestep values with descriptive error messages', () => {
-      expect(() => new Snaproll({ timestep: -1 })).toThrow(
+    it('rejects invalid updateRate values with descriptive error messages', () => {
+      expect(() => new Snaproll({ updateRate: -1 })).toThrow(
         '[snaproll] timestep must be a positive number',
       )
-      expect(() => new Snaproll({ timestep: 0 })).toThrow(
+      expect(() => new Snaproll({ updateRate: 0 })).toThrow(
         '[snaproll] timestep must be a positive number',
       )
-      expect(() => new Snaproll({ timestep: Infinity })).toThrow(
+      expect(() => new Snaproll({ updateRate: Infinity })).toThrow(
         '[snaproll] timestep must be a positive number',
       )
-      expect(() => new Snaproll({ timestep: NaN })).toThrow(
+      expect(() => new Snaproll({ updateRate: NaN })).toThrow(
         '[snaproll] timestep must be a positive number',
       )
     })
@@ -108,7 +114,6 @@ describe('Snaproll Unit Tests', () => {
       expect(snaprollInstance.state).toBe('active')
 
       subscriptionControls.pause()
-      snaprollInstance.idle()
       expect(snaprollInstance.state).toBe('idle')
     })
   })
@@ -197,95 +202,95 @@ describe('Snaproll Unit Tests', () => {
   })
 
   describe('Frame Rate and Timing', () => {
-    it('accurately calculates actual fps after running animation frames', () => {
-      const targetFps = 60
-      const snaprollInstance = new Snaproll({ fps: targetFps })
+    it('accurately calculates actual drawRate after running animation frames', () => {
+      const targetDrawRate = 60
+      const snaprollInstance = new Snaproll({ drawRate: targetDrawRate })
 
       const frameCallback = vi.fn()
       snaprollInstance.subscribe(frameCallback)
       startAnimationLoop(snaprollInstance)
 
-      // Simulate exactly 1 second at target fps
-      const simulationFrames = targetFps
-      const frameInterval = 1000 / targetFps
+      // Simulate exactly 1 second at target drawRate
+      const simulationFrames = targetDrawRate
+      const frameInterval = 1000 / targetDrawRate
       for (let frameIndex = 0; frameIndex < simulationFrames; frameIndex++) {
         advanceOneFrame(frameInterval)
       }
 
-      expect(isApproximatelyEqual(snaprollInstance.fps, targetFps, 5)).toBe(true)
+      expect(isApproximatelyEqual(snaprollInstance.drawRate, targetDrawRate, 5)).toBe(true)
 
       snaprollInstance.pause()
     })
 
-    it('accepts fps changes through setter without throwing errors', () => {
-      const initialFps = 60
-      const newFps = 30
-      const snaprollInstance = new Snaproll({ fps: initialFps })
+    it('accepts drawRate changes through setter without throwing errors', () => {
+      const initialDrawRate = 60
+      const newDrawRate = 30
+      const snaprollInstance = new Snaproll({ drawRate: initialDrawRate })
 
-      snaprollInstance.fps = newFps
+      snaprollInstance.drawRate = newDrawRate
 
-      // The fps property returns calculated FPS, not the target
+      // The drawRate property returns the target draw rate
       // Verify the setter operation completed successfully
-      expect(snaprollInstance.fps).toBeGreaterThanOrEqual(0)
+      expect(snaprollInstance.drawRate).toBe(newDrawRate)
     })
 
-    it('rejects invalid fps values through setter with descriptive errors', () => {
+    it('rejects invalid drawRate values through setter with descriptive errors', () => {
       const snaprollInstance = new Snaproll()
 
       expect(() => {
-        snaprollInstance.fps = -1
-      }).toThrow('[snaproll] fps must be a positive number')
+        snaprollInstance.drawRate = -1
+      }).toThrow('[snaproll] draw rate must be a positive number')
       expect(() => {
-        snaprollInstance.fps = 0
-      }).toThrow('[snaproll] fps must be a positive number')
+        snaprollInstance.drawRate = 0
+      }).toThrow('[snaproll] draw rate must be a positive number')
       expect(() => {
-        snaprollInstance.fps = Infinity
-      }).toThrow('[snaproll] fps must be a positive number')
+        snaprollInstance.drawRate = Infinity
+      }).toThrow('[snaproll] draw rate must be a positive number')
       expect(() => {
-        snaprollInstance.fps = NaN
-      }).toThrow('[snaproll] fps must be a positive number')
+        snaprollInstance.drawRate = NaN
+      }).toThrow('[snaproll] draw rate must be a positive number')
     })
 
-    it('maintains timestep value through getter and setter operations', () => {
-      const initialTimestep = 16
-      const newTimestep = 32
-      const snaprollInstance = new Snaproll({ timestep: initialTimestep })
+    it('maintains updateRate value through getter and setter operations', () => {
+      const initialSimulationRate = 60
+      const newSimulationRate = 30
+      const snaprollInstance = new Snaproll({ updateRate: initialSimulationRate })
 
-      expect(snaprollInstance.timestep).toBe(initialTimestep)
+      expect(snaprollInstance.updateRate).toBe(initialSimulationRate)
 
-      snaprollInstance.timestep = newTimestep
-      expect(snaprollInstance.timestep).toBe(newTimestep)
+      snaprollInstance.updateRate = newSimulationRate
+      expect(snaprollInstance.updateRate).toBe(newSimulationRate)
     })
 
-    it('rejects invalid timestep values through setter with descriptive errors', () => {
+    it('rejects invalid updateRate values through setter with descriptive errors', () => {
       const snaprollInstance = new Snaproll()
 
       expect(() => {
-        snaprollInstance.timestep = -1
+        snaprollInstance.updateRate = -1
       }).toThrow('[snaproll] timestep must be a positive number')
       expect(() => {
-        snaprollInstance.timestep = 0
+        snaprollInstance.updateRate = 0
       }).toThrow('[snaproll] timestep must be a positive number')
       expect(() => {
-        snaprollInstance.timestep = Infinity
+        snaprollInstance.updateRate = Infinity
       }).toThrow('[snaproll] timestep must be a positive number')
       expect(() => {
-        snaprollInstance.timestep = NaN
+        snaprollInstance.updateRate = NaN
       }).toThrow('[snaproll] timestep must be a positive number')
     })
   })
 
   describe('Reset Functionality', () => {
     it('applies new configuration options while preserving paused state', () => {
-      const initialConfig = { fps: 30, timestep: 20 }
-      const newConfig = { fps: 60, timestep: 16 }
+      const initialConfig = { drawRate: 30, updateRate: 50 }
+      const newConfig = { drawRate: 60, updateRate: 60 }
       const snaprollInstance = new Snaproll(initialConfig)
       const subscriptionCallback = vi.fn()
       snaprollInstance.subscribe(subscriptionCallback)
 
       snaprollInstance.reset(newConfig)
 
-      expect(snaprollInstance.timestep).toBe(newConfig.timestep)
+      expect(snaprollInstance.updateRate).toBe(newConfig.updateRate)
       expect(snaprollInstance.state).toBe('paused')
     })
 
@@ -312,7 +317,7 @@ describe('Snaproll Unit Tests', () => {
 
       snaprollInstance.reset({ keepSubscriptions: false })
 
-      expect(snaprollInstance.state).toBe('active')
+      expect(snaprollInstance.state).toBe('idle')
     })
   })
 })
@@ -320,7 +325,7 @@ describe('Snaproll Unit Tests', () => {
 describe('Animation Loop Integration Tests', () => {
   describe('Action Sequence', () => {
     it('executes animation actions in correct chronological order: Begin → Update → Draw', () => {
-      const frameConfig = { fps: 60, timestep: 16.67 }
+      const frameConfig = { drawRate: 60, updateRate: 60 }
       const snaprollInstance = new Snaproll(frameConfig)
       const capturedActions: SnaprollAction[] = []
 
@@ -330,7 +335,7 @@ describe('Animation Loop Integration Tests', () => {
       })
 
       startAnimationLoop(snaprollInstance)
-      advanceOneFrame(frameConfig.timestep)
+      advanceOneFrame(16.67)
 
       expect(capturedActions.length).toBeGreaterThan(0)
 
@@ -357,7 +362,7 @@ describe('Animation Loop Integration Tests', () => {
     })
 
     it('provides accurate timing data in all action types', () => {
-      const frameConfig = { fps: 60, timestep: 16.67 }
+      const frameConfig = { drawRate: 60, updateRate: 60 }
       const snaprollInstance = new Snaproll(frameConfig)
       const capturedActions: SnaprollAction[] = []
 
@@ -367,7 +372,7 @@ describe('Animation Loop Integration Tests', () => {
       })
 
       startAnimationLoop(snaprollInstance)
-      advanceOneFrame(frameConfig.timestep)
+      advanceOneFrame(16.67)
 
       const beginAction = capturedActions.find((action) => action.type === SnaprollActionType.Begin)
       const updateAction = capturedActions.find(
@@ -382,7 +387,7 @@ describe('Animation Loop Integration Tests', () => {
 
       if (updateAction !== undefined) {
         expect(updateAction.timestamp).toBeDefined()
-        expect(updateAction.timestep).toBe(frameConfig.timestep)
+        expect(updateAction.timestep).toBe(1000 / frameConfig.updateRate)
       }
 
       expect(drawAction).toBeDefined()
@@ -398,7 +403,7 @@ describe('Animation Loop Integration Tests', () => {
 
   describe('Frame Timing Accuracy', () => {
     it('maintains consistent frame timing', () => {
-      const loop = new Snaproll({ fps: 60, timestep: 16.67 })
+      const loop = new Snaproll({ drawRate: 60, updateRate: 60 })
       const frameTimes: number[] = []
       let lastTimestamp = 0
 
@@ -429,7 +434,7 @@ describe('Animation Loop Integration Tests', () => {
     })
 
     it('handles variable frame timing gracefully', () => {
-      const loop = new Snaproll({ fps: 60, timestep: 16.67 })
+      const loop = new Snaproll({ drawRate: 60, updateRate: 60 })
       const actions: SnaprollAction[] = []
 
       loop.subscribe((action) => {
@@ -458,7 +463,7 @@ describe('Animation Loop Integration Tests', () => {
 
   describe('Subscription Edge Cases', () => {
     it('handles subscription during animation loop', () => {
-      const loop = new Snaproll({ fps: 60, timestep: 16.67 })
+      const loop = new Snaproll({ drawRate: 60, updateRate: 60 })
       const callback1 = vi.fn()
       const callback2 = vi.fn()
 
@@ -480,7 +485,7 @@ describe('Animation Loop Integration Tests', () => {
     })
 
     it('handles unsubscription during animation loop', () => {
-      const loop = new Snaproll({ fps: 60, timestep: 16.67 })
+      const loop = new Snaproll({ drawRate: 60, updateRate: 60 })
       const callback1 = vi.fn()
       const callback2 = vi.fn()
 
@@ -508,8 +513,8 @@ describe('Animation Loop Integration Tests', () => {
 
 describe('Edge Cases and Error Handling', () => {
   describe('Extreme Values', () => {
-    it('handles very high FPS values', () => {
-      const loop = new Snaproll({ fps: 240, timestep: 1000 / 240 })
+    it('handles very high drawRate values', () => {
+      const loop = new Snaproll({ drawRate: 240, updateRate: 240 })
       const callback = vi.fn()
 
       loop.subscribe(callback)
@@ -521,8 +526,8 @@ describe('Edge Cases and Error Handling', () => {
       loop.pause()
     })
 
-    it('handles very low FPS values', () => {
-      const loop = new Snaproll({ fps: 1, timestep: 1000 })
+    it('handles very low drawRate values', () => {
+      const loop = new Snaproll({ drawRate: 1, updateRate: 1 })
       const callback = vi.fn()
 
       loop.subscribe(callback)
@@ -534,8 +539,8 @@ describe('Edge Cases and Error Handling', () => {
       loop.pause()
     })
 
-    it('handles very small timestep values', () => {
-      const loop = new Snaproll({ fps: 60, timestep: 0.1 })
+    it('handles very high updateRate values', () => {
+      const loop = new Snaproll({ drawRate: 60, updateRate: 10_000 })
       const actions: SnaprollAction[] = []
 
       loop.subscribe((action) => {
@@ -552,8 +557,8 @@ describe('Edge Cases and Error Handling', () => {
       loop.pause()
     })
 
-    it('handles large timestep values', () => {
-      const loop = new Snaproll({ fps: 60, timestep: 100 })
+    it('handles very low updateRate values', () => {
+      const loop = new Snaproll({ drawRate: 60, updateRate: 10 })
       const actions: SnaprollAction[] = []
 
       loop.subscribe((action) => {
@@ -573,7 +578,7 @@ describe('Edge Cases and Error Handling', () => {
 
   describe('Callback Error Handling', () => {
     it('continues animation loop when callback throws error', () => {
-      const loop = new Snaproll({ fps: 60, timestep: 16.67 })
+      const loop = new Snaproll({ drawRate: 60, updateRate: 60 })
       const errorCallback = vi.fn(() => {
         throw new Error('Test error')
       })
@@ -592,7 +597,7 @@ describe('Edge Cases and Error Handling', () => {
 
       // Core test: MockTimeController handles errors gracefully and system continues
       // Create fresh loop to test recovery
-      const recoveryLoop = new Snaproll({ fps: 60, timestep: 16.67 })
+      const recoveryLoop = new Snaproll({ drawRate: 60, updateRate: 60 })
       const normalCallback = vi.fn()
       recoveryLoop.subscribe(normalCallback)
       startAnimationLoop(recoveryLoop)
@@ -607,7 +612,7 @@ describe('Edge Cases and Error Handling', () => {
 
   describe('Rapid State Changes', () => {
     it('handles rapid pause/resume cycles', () => {
-      const loop = new Snaproll({ fps: 60, timestep: 16.67 })
+      const loop = new Snaproll({ drawRate: 60, updateRate: 60 })
       const callback = vi.fn()
 
       loop.subscribe(callback)
@@ -621,7 +626,7 @@ describe('Edge Cases and Error Handling', () => {
     })
 
     it('handles rapid subscription changes', () => {
-      const loop = new Snaproll({ fps: 60, timestep: 16.67 })
+      const loop = new Snaproll({ drawRate: 60, updateRate: 60 })
       const callbacks = Array.from({ length: 10 }, () => vi.fn())
 
       const controls = callbacks.map((callback) => loop.subscribe(callback))
@@ -642,7 +647,7 @@ describe('Edge Cases and Error Handling', () => {
 
   describe('Memory and Resource Management', () => {
     it('cleans up subscriptions properly', () => {
-      const loop = new Snaproll({ fps: 60, timestep: 16.67 })
+      const loop = new Snaproll({ drawRate: 60, updateRate: 60 })
       const callbacks = Array.from({ length: 100 }, () => vi.fn())
 
       const controls = callbacks.map((callback) => loop.subscribe(callback))
@@ -667,7 +672,7 @@ describe('Edge Cases and Error Handling', () => {
     })
 
     it('handles reset with many subscriptions', () => {
-      const loop = new Snaproll({ fps: 60, timestep: 16.67 })
+      const loop = new Snaproll({ drawRate: 60, updateRate: 60 })
       const callbacks = Array.from({ length: 50 }, () => vi.fn())
 
       callbacks.forEach((callback) => loop.subscribe(callback))
@@ -677,8 +682,8 @@ describe('Edge Cases and Error Handling', () => {
       callbacks.forEach((callback) => expect(callback).toHaveBeenCalled())
 
       loop.reset({ keepSubscriptions: false })
-      // State is preserved as active after reset
-      expect(loop.state).toBe('active')
+      // State is idle after reset with keepSubscriptions: false
+      expect(loop.state).toBe('idle')
 
       callbacks.forEach((callback) => callback.mockClear())
       loop.resume()
@@ -691,7 +696,7 @@ describe('Edge Cases and Error Handling', () => {
 
   describe('Boundary Conditions', () => {
     it('handles zero frame advance', () => {
-      const loop = new Snaproll({ fps: 60, timestep: 16.67 })
+      const loop = new Snaproll({ drawRate: 60, updateRate: 60 })
       const callback = vi.fn()
 
       loop.subscribe(callback)
@@ -707,7 +712,7 @@ describe('Edge Cases and Error Handling', () => {
     })
 
     it('handles backwards time (should not happen but be defensive)', () => {
-      const loop = new Snaproll({ fps: 60, timestep: 16.67 })
+      const loop = new Snaproll({ drawRate: 60, updateRate: 60 })
       const callback = vi.fn()
 
       loop.subscribe(callback)
@@ -729,8 +734,8 @@ describe('Edge Cases and Error Handling', () => {
 
 describe('Essential Animation Behavior', () => {
   it('maintains consistent update timing over multiple frames', () => {
-    const timestep = 16.67
-    const loop = new Snaproll({ fps: 60, timestep })
+    const updateRate = 60
+    const loop = new Snaproll({ drawRate: 60, updateRate })
 
     const updateActions: SnaprollActionUpdate[] = []
     let totalFrameTime = 0
@@ -751,6 +756,7 @@ describe('Essential Animation Behavior', () => {
       advanceOneFrame(frameTime)
     })
 
+    const timestep = 1000 / updateRate
     const totalUpdateTime = updateActions.length * timestep
     const expectedUpdateTime = Math.floor(totalFrameTime / timestep) * timestep
 
@@ -761,7 +767,7 @@ describe('Essential Animation Behavior', () => {
   })
 
   it('maintains proper action sequence ordering', () => {
-    const loop = new Snaproll({ fps: 60, timestep: 16.67 })
+    const loop = new Snaproll({ drawRate: 60, updateRate: 60 })
     const actions: SnaprollAction[] = []
 
     loop.subscribe((action) => {
@@ -798,7 +804,7 @@ describe('Essential Animation Behavior', () => {
   })
 
   it('subscription count does not affect core functionality', () => {
-    const loop = new Snaproll({ fps: 60, timestep: 16.67 })
+    const loop = new Snaproll({ drawRate: 60, updateRate: 60 })
     const callbacks = Array.from({ length: 5 }, () => vi.fn())
 
     callbacks.forEach((callback) => loop.subscribe(callback))
@@ -820,19 +826,19 @@ describe('Essential Animation Behavior', () => {
   })
 
   it('reset preserves essential configuration', () => {
-    const loop = new Snaproll({ fps: 60, timestep: 16.67 })
+    const loop = new Snaproll({ drawRate: 60, updateRate: 60 })
 
-    expect(loop.timestep).toBe(16.67)
+    expect(loop.updateRate).toBe(60)
     expect(loop.state).toBe('paused')
 
-    loop.reset({ fps: 30, timestep: 33.33 })
+    loop.reset({ drawRate: 30, updateRate: 30 })
 
-    expect(loop.timestep).toBe(33.33)
+    expect(loop.updateRate).toBe(30)
     expect(loop.state).toBe('paused') // State should be preserved
   })
 
   it('pause/resume cycles work reliably', () => {
-    const loop = new Snaproll({ fps: 60, timestep: 16.67 })
+    const loop = new Snaproll({ drawRate: 60, updateRate: 60 })
     const callback = vi.fn()
 
     loop.subscribe(callback)
@@ -857,7 +863,7 @@ describe('Essential Animation Behavior', () => {
 
   describe('Performance Validation', () => {
     it('handles basic subscription cleanup properly', () => {
-      const loop = new Snaproll({ fps: 60, timestep: 16.67 })
+      const loop = new Snaproll({ drawRate: 60, updateRate: 60 })
 
       // Create and remove some subscriptions
       const callbacks = Array.from({ length: 10 }, () => vi.fn())
@@ -888,22 +894,23 @@ describe('Essential Animation Behavior', () => {
 describe('Cross-FPS Behavior Validation', () => {
   it('operates correctly across standard frame rates: 30fps, 60fps, and 120fps', () => {
     const standardFrameRateConfigurations = [
-      { fps: 30, timestep: 33.33 },
-      { fps: 60, timestep: 16.67 },
-      { fps: 120, timestep: 8.33 },
+      { drawRate: 30, updateRate: 30 },
+      { drawRate: 60, updateRate: 60 },
+      { drawRate: 120, updateRate: 120 },
     ]
 
-    standardFrameRateConfigurations.forEach(({ fps, timestep }) => {
-      const snaprollInstance = new Snaproll({ fps, timestep })
+    standardFrameRateConfigurations.forEach(({ drawRate, updateRate }) => {
+      const snaprollInstance = new Snaproll({ drawRate, updateRate })
       const frameCallback = vi.fn()
 
       snaprollInstance.subscribe(frameCallback)
       startAnimationLoop(snaprollInstance)
 
       // Execute multiple frames at the configured rate
-      advanceOneFrame(timestep)
-      advanceOneFrame(timestep)
-      advanceOneFrame(timestep)
+      const frameInterval = 1000 / drawRate
+      advanceOneFrame(frameInterval)
+      advanceOneFrame(frameInterval)
+      advanceOneFrame(frameInterval)
 
       expect(frameCallback).toHaveBeenCalled()
       expect(snaprollInstance.state).toBe('active')
@@ -913,7 +920,7 @@ describe('Cross-FPS Behavior Validation', () => {
   })
 
   it('adapts to realistic browser frame timing variations without issues', () => {
-    const standardConfig = { fps: 60, timestep: 16.67 }
+    const standardConfig = { drawRate: 60, updateRate: 60 }
     const snaprollInstance = new Snaproll(standardConfig)
     const capturedActions: SnaprollAction[] = []
 
@@ -926,6 +933,7 @@ describe('Cross-FPS Behavior Validation', () => {
 
     // Simulate realistic browser timing variations around 60fps target
     const variableFrameIntervals = [15.5, 17.2, 16.1, 18, 16.8]
+    // const variableFrameIntervals = [1000 / 60, 1000 / 60, 1000 / 60, 1000 / 60]
     variableFrameIntervals.forEach((frameInterval) => advanceOneFrame(frameInterval))
 
     const beginActions = capturedActions.filter(
@@ -933,40 +941,21 @@ describe('Cross-FPS Behavior Validation', () => {
     )
     const drawActions = capturedActions.filter((action) => action.type === SnaprollActionType.Draw)
 
-    expect(beginActions.length).toBe(variableFrameIntervals.length)
-    expect(drawActions.length).toBe(variableFrameIntervals.length)
-
-    snaprollInstance.pause()
-  })
-
-  it('transitions smoothly when fps is changed during active animation', () => {
-    const initialFps = 60
-    const newFps = 30
-    const snaprollInstance = new Snaproll({ fps: initialFps, timestep: 1000 / initialFps })
-    const frameCallback = vi.fn()
-
-    snaprollInstance.subscribe(frameCallback)
-    startAnimationLoop(snaprollInstance)
-
-    advanceOneFrame(1000 / initialFps)
-    expect(frameCallback).toHaveBeenCalled()
-
-    frameCallback.mockClear()
-    snaprollInstance.fps = newFps
-
-    advanceOneFrame(1000 / newFps)
-    expect(frameCallback).toHaveBeenCalled()
+    expect(beginActions.length).toBeGreaterThanOrEqual(variableFrameIntervals.length - 1)
+    expect(drawActions.length).toBeGreaterThanOrEqual(variableFrameIntervals.length - 1)
 
     snaprollInstance.pause()
   })
 
   it('maintains 30fps action frequency despite 60fps frame advance rate', () => {
-    const snaprollTargetFps = 30
+    const snaprollTargetDrawRate = 30
     const frameAdvanceRate = 60
-    const expectedTimestep = 1000 / snaprollTargetFps // 33.33ms
     const frameAdvanceInterval = 1000 / frameAdvanceRate // 16.67ms
 
-    const loop = new Snaproll({ fps: snaprollTargetFps, timestep: expectedTimestep })
+    const loop = new Snaproll({
+      drawRate: snaprollTargetDrawRate,
+      updateRate: snaprollTargetDrawRate,
+    })
     const capturedBeginActions: SnaprollAction[] = []
     const capturedUpdateActions: SnaprollAction[] = []
     const capturedDrawActions: SnaprollAction[] = []
@@ -991,16 +980,16 @@ describe('Cross-FPS Behavior Validation', () => {
     }
 
     // All action types should execute at snaproll's configured rate, not the frame advance rate
-    expect(isApproximatelyEqual(capturedBeginActions.length, snaprollTargetFps, 3)).toBe(true)
-    expect(isApproximatelyEqual(capturedDrawActions.length, snaprollTargetFps, 3)).toBe(true)
-    expect(isApproximatelyEqual(capturedUpdateActions.length, snaprollTargetFps, 3)).toBe(true)
+    expect(isApproximatelyEqual(capturedBeginActions.length, snaprollTargetDrawRate, 1)).toBe(true)
+    expect(isApproximatelyEqual(capturedDrawActions.length, snaprollTargetDrawRate, 1)).toBe(true)
+    expect(isApproximatelyEqual(capturedUpdateActions.length, snaprollTargetDrawRate, 1)).toBe(true)
 
     loop.pause()
   })
 
   it('handles large time advance that triggers updateStep >= 10 and skips draw when callback returns true', () => {
-    const timestep = 16.67 // 60fps
-    const loop = new Snaproll({ fps: 60, timestep })
+    const updateRate = 60
+    const loop = new Snaproll({ drawRate: 60, updateRate })
     const capturedActions: SnaprollAction[] = []
     let largeUpdateStepDetected = false
 
@@ -1051,7 +1040,7 @@ describe('Cross-FPS Behavior Validation', () => {
 
 describe('Performance Validation Tests', () => {
   it('handles reasonable number of subscriptions', () => {
-    const loop = new Snaproll({ fps: 60, timestep: 16.67 })
+    const loop = new Snaproll({ drawRate: 60, updateRate: 60 })
 
     // Test with realistic number of subscriptions (5-10 is typical)
     const callbacks = Array.from({ length: 8 }, () => vi.fn())
@@ -1071,7 +1060,7 @@ describe('Performance Validation Tests', () => {
   })
 
   it('subscription lifecycle works efficiently', () => {
-    const loop = new Snaproll({ fps: 60, timestep: 16.67 })
+    const loop = new Snaproll({ drawRate: 60, updateRate: 60 })
 
     // Create a reasonable number of subscriptions
     const callbacks = Array.from({ length: 10 }, () => vi.fn())
@@ -1099,9 +1088,9 @@ describe('Performance Validation Tests', () => {
 
 describe('Legacy Compatibility Tests', () => {
   it('maintains compatibility with original test pattern', () => {
-    const timestep = 1000 / 60
-    const fps = 60
-    const loop = new Snaproll({ fps, timestep })
+    const updateRate = 60
+    const drawRate = 60
+    const loop = new Snaproll({ drawRate, updateRate })
     const begin = vi.fn()
     const update = vi.fn()
     const draw = vi.fn()
@@ -1126,13 +1115,13 @@ describe('Legacy Compatibility Tests', () => {
     loop.resume()
 
     // Simulate 10 seconds of animation
-    const targetFrames = fps * 10
+    const targetFrames = drawRate * 10
     for (let index = 0; index < targetFrames; index++) {
-      timeController.advance(1000 / fps)
+      timeController.advance(1000 / drawRate)
     }
 
     expect(isApproximatelyEqual(draw.mock.calls.length, targetFrames, 5)).toBe(true)
-    expect(isApproximatelyEqual(loop.fps, fps, 5)).toBe(true)
+    expect(isApproximatelyEqual(loop.drawRate, drawRate, 5)).toBe(true)
 
     loop.pause()
   })

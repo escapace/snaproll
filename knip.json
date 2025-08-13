@@ -10,7 +10,8 @@
     "src/index.ts!",
     "src/types.ts",
     "vitest.config.*.ts",
-    "vitest.config.ts"
+    "vitest.config.ts",
+    "example/index.ts"
   ],
   "ignore": ["**/*.d.+([a-zA-Z0-9]).ts", "**/*.d.ts", "lib/**"],
   "ignoreBinaries": ["ncu", "taze"],
