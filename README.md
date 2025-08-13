@@ -54,7 +54,7 @@ snaproll.updateRate = 30 // Reduce to 30 Hz updates
 
 // Manual control
 subscription.pause() // Pause this subscription
-subscription.resume() // Resume after delay
+subscription.resume() // Resume after
 
 // Reset with new configuration
 snaproll.reset({
