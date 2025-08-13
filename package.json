@@ -1,6 +1,6 @@
 {
   "name": "snaproll",
-  "description": "",
+  "description": "Fixed‑timestep update loop with independent draw rate and quantized interpolation",
   "version": "0.0.0",
   "author": {
     "name": "escapace",

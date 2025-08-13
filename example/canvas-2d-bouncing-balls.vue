@@ -134,19 +134,19 @@ const drawBalls = (alpha: number): void => {
 }
 
 for (const ball of balls) {
-  const subscription: SnaprollSubscription = (action) => {
-    switch (action.type) {
+  const subscription: SnaprollSubscription = (context) => {
+    switch (context.action) {
       case SnaprollActionType.Begin:
         break
       case SnaprollActionType.Update:
-        const coalesce = action.updateStep >= 100
-        const timestep = coalesce ? action.updateStep * action.timestep : action.timestep
+        const coalesce = context.updateStep >= 100
+        const timestep = coalesce ? context.updateStep * context.timestep : context.timestep
 
         updateBall(ball, timestep)
 
         return coalesce
       case SnaprollActionType.Draw:
-        drawBalls(action.alpha)
+        drawBalls(context.alpha)
         break
     }
 

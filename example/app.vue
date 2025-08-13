@@ -211,16 +211,16 @@ onMounted(() => {
   observer.observe({ entryTypes: ['mark'] })
   pane.element.style.opacity = '0.9'
 
-  snaproll.subscribe((action): undefined => {
-    if (action.type === SnaprollActionType.Begin) {
+  snaproll.subscribe((context): undefined => {
+    if (context.action === SnaprollActionType.Begin) {
       estimationBegin.update()
     }
 
-    if (action.type === SnaprollActionType.Update) {
+    if (context.action === SnaprollActionType.Update) {
       estimationUpdate.update()
     }
 
-    if (action.type === SnaprollActionType.Draw) {
+    if (context.action === SnaprollActionType.Draw) {
       estimationDraw.update()
     }
   })

@@ -5,33 +5,26 @@ export enum SnaprollActionType {
 }
 
 export interface SnaprollActionBegin {
+  action: SnaprollActionType.Begin
   timestamp: number
-  type: SnaprollActionType.Begin
 }
 
-export interface SnaprollActionUpdate extends Omit<SnaprollActionBegin, 'type'> {
+export interface SnaprollActionUpdate extends Omit<SnaprollActionBegin, 'action'> {
+  action: SnaprollActionType.Update
   timestep: number
-  type: SnaprollActionType.Update
   updateStep: number
 }
 
-export interface SnaprollActionDraw extends Omit<SnaprollActionUpdate, 'type'> {
+export interface SnaprollActionDraw extends Omit<SnaprollActionUpdate, 'action'> {
+  action: SnaprollActionType.Draw
   alpha: number
-  type: SnaprollActionType.Draw
 }
 
 // eslint-disable-next-line typescript/no-empty-object-type, typescript/no-empty-interface
-export interface SnaprollContext {}
+export interface SnaprollUserContext {}
 
-export type SnaprollAction = (SnaprollActionBegin | SnaprollActionDraw | SnaprollActionUpdate) &
-  SnaprollContext
-
-type SnaprollActionAndContext = Omit<SnaprollContext, 'alpha' | 'timestamp' | 'timestep' | 'type'> &
-  Partial<
-    { type: SnaprollActionType } & Omit<SnaprollActionBegin, 'type'> &
-      Omit<SnaprollActionDraw, 'type'> &
-      Omit<SnaprollActionUpdate, 'type'>
-  >
+export type SnaprollContext = (SnaprollActionBegin | SnaprollActionDraw | SnaprollActionUpdate) &
+  SnaprollUserContext
 
 export interface SnaprollSubscriptionControls {
   pause: () => void
@@ -39,17 +32,24 @@ export interface SnaprollSubscriptionControls {
   unsubscribe: () => void
 }
 
-export type SnaprollSubscription = (action: SnaprollAction) => boolean | undefined
+export type SnaprollSubscription = (context: SnaprollContext) => boolean | undefined
 
 export interface SnaprollOptions {
   drawRate: number
   updateRate: number
-  context?: SnaprollContext
+  context?: SnaprollUserContext
 }
 
-interface SnaprollSubscriptionState {
+interface SubscriptionState {
   active: boolean
 }
+
+type Context = Omit<SnaprollUserContext, 'action' | 'alpha' | 'timestamp' | 'timestep'> &
+  Partial<
+    { action: SnaprollActionType } & Omit<SnaprollActionBegin, 'action'> &
+      Omit<SnaprollActionDraw, 'action'> &
+      Omit<SnaprollActionUpdate, 'action'>
+  >
 
 const DEFAULT_UPDATE_RATE = 60
 const DEFAULT_DRAW_RATE = 60
@@ -85,9 +85,7 @@ function assertOptions(
   )
 }
 
-const subscriptionActive = (
-  subscriptionStateMap: Map<SnaprollSubscription, SnaprollSubscriptionState>,
-) => {
+const subscriptionActive = (subscriptionStateMap: Map<SnaprollSubscription, SubscriptionState>) => {
   for (const state of subscriptionStateMap.values()) {
     if (state.active) {
       return true
@@ -109,7 +107,7 @@ const STATES = {
 } as const
 
 interface Store {
-  context: SnaprollActionAndContext
+  context: Context
   drawRate: number
   frameIndex: number
   pendingAnimationFrame: number
@@ -117,27 +115,24 @@ interface Store {
   quantizationGrid: number
   state: TypeState
   subscriptions: SnaprollSubscription[]
-  subscriptionStateMap: Map<SnaprollSubscription, SnaprollSubscriptionState>
+  subscriptionStateMap: Map<SnaprollSubscription, SubscriptionState>
   targetFrameTime: number
   timestamp: number
   timestep: number
   updateRate: number
 }
 
-const CONTEXT_EMPTY: Record<keyof Required<SnaprollActionAndContext>, undefined> = {
+const CONTEXT_EMPTY: Record<keyof Required<Context>, undefined> = {
+  action: undefined,
   alpha: undefined,
   timestamp: undefined,
   timestep: undefined,
-  type: undefined,
   updateStep: undefined,
 }
 
 const createStore = (
   options: Partial<
-    { subscriptions: Array<[SnaprollSubscription, SnaprollSubscriptionState]> } & Pick<
-      Store,
-      'state'
-    > &
+    { subscriptions: Array<[SnaprollSubscription, SubscriptionState]> } & Pick<Store, 'state'> &
       SnaprollOptions
   >,
   // previous = [],
@@ -161,13 +156,13 @@ const createStore = (
   // stopping the loop.
   const pendingAnimationFrame = 0
 
-  const context: SnaprollActionAndContext =
+  const context: Context =
     options.context === undefined
       ? { ...CONTEXT_EMPTY }
       : Object.assign(options.context, CONTEXT_EMPTY)
 
   const subscriptions: SnaprollSubscription[] = []
-  const subscriptionStateMap = new Map<SnaprollSubscription, SnaprollSubscriptionState>()
+  const subscriptionStateMap = new Map<SnaprollSubscription, SubscriptionState>()
 
   if (options.subscriptions !== undefined) {
     for (const [subscriptionFunction, subscriptionState] of options.subscriptions) {
@@ -243,7 +238,7 @@ const createAnimate = (store: Store, callback: () => ReturnType<SnaprollSubscrip
     }
 
     store.frameIndex = frameIndex
-    context.type = SnaprollActionType.Begin
+    context.action = SnaprollActionType.Begin
     context.timestamp = now
 
     if (callback() === true) {
@@ -258,7 +253,7 @@ const createAnimate = (store: Store, callback: () => ReturnType<SnaprollSubscrip
     store.timestamp = now
 
     const timestep = store.timestep
-    context.type = SnaprollActionType.Update
+    context.action = SnaprollActionType.Update
     context.timestep = timestep
 
     let updateStep = (pendingTime / timestep) | 0
@@ -280,7 +275,7 @@ const createAnimate = (store: Store, callback: () => ReturnType<SnaprollSubscrip
     }
 
     store.pendingTime = pendingTime
-    context.type = SnaprollActionType.Draw
+    context.action = SnaprollActionType.Draw
     /**
      * quantizationGrid is a user set temporal frequency in hertz, same as frames per
      * second. (60 by default)
@@ -306,14 +301,13 @@ export class Snaproll {
   private readonly callback = (): ReturnType<SnaprollSubscription> => {
     const { context, subscriptions: activeSubscriptions } = this.store
     const length = activeSubscriptions.length
-    const action = context
 
     let state: ReturnType<SnaprollSubscription> = undefined
 
     for (let index = 0; index < length; index++) {
       const subscription = activeSubscriptions[index]
 
-      if (subscription(action as SnaprollAction) === true) {
+      if (subscription(context as SnaprollContext) === true) {
         state = true
       }
     }

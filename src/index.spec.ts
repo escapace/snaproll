@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   Snaproll,
   SnaprollActionType,
-  type SnaprollAction,
   type SnaprollActionUpdate,
+  type SnaprollContext,
   type SnaprollSubscriptionControls,
 } from './index'
 import { calculateTimingStats, isApproximatelyEqual, MockTimeController } from './test-utilities'
@@ -25,6 +25,42 @@ function advanceOneFrame(frameTime = 16.67): void {
 function resumeSubscription(controls: SnaprollSubscriptionControls): void {
   controls.resume()
   timeController.advance(0.001) // Resume triggers new animation loop setup
+}
+
+// Helper function for monotonicity test with update tracking
+const testMonotonicityWithUpdateTracking = (
+  updateRate: number,
+  drawRate: number,
+  frameTimes: number[],
+) => {
+  const loop = new Snaproll({ drawRate, updateRate })
+  const velocity = 10
+
+  let previousPosition = 0
+  let currentPosition = 0
+  let updatesSinceLastDraw = 0
+  const interpolatedPositions: number[] = []
+  const updatesPerDraw: number[] = []
+
+  loop.subscribe((context) => {
+    if (context.action === SnaprollActionType.Update) {
+      previousPosition = currentPosition
+      currentPosition += velocity
+      updatesSinceLastDraw++
+    } else if (context.action === SnaprollActionType.Draw) {
+      const pos = (1 - context.alpha) * previousPosition + context.alpha * currentPosition
+      interpolatedPositions.push(pos)
+      updatesPerDraw.push(updatesSinceLastDraw)
+      updatesSinceLastDraw = 0
+    }
+    return undefined
+  })
+
+  startAnimationLoop(loop)
+  frameTimes.forEach((frameTime) => advanceOneFrame(frameTime))
+  loop.pause()
+
+  return { drawRate, interpolatedPositions, updatesPerDraw, velocity }
 }
 
 beforeEach(() => {
@@ -211,9 +247,9 @@ describe('Snaproll Unit Tests', () => {
       startAnimationLoop(snaprollInstance)
 
       // Simulate exactly 1 second at target drawRate
-      const simulationFrames = targetDrawRate
+      const updateFrames = targetDrawRate
       const frameInterval = 1000 / targetDrawRate
-      for (let frameIndex = 0; frameIndex < simulationFrames; frameIndex++) {
+      for (let frameIndex = 0; frameIndex < updateFrames; frameIndex++) {
         advanceOneFrame(frameInterval)
       }
 
@@ -252,14 +288,14 @@ describe('Snaproll Unit Tests', () => {
     })
 
     it('maintains updateRate value through getter and setter operations', () => {
-      const initialSimulationRate = 60
-      const newSimulationRate = 30
-      const snaprollInstance = new Snaproll({ updateRate: initialSimulationRate })
+      const initialUpdateRate = 60
+      const newUpdateRate = 30
+      const snaprollInstance = new Snaproll({ updateRate: initialUpdateRate })
 
-      expect(snaprollInstance.updateRate).toBe(initialSimulationRate)
+      expect(snaprollInstance.updateRate).toBe(initialUpdateRate)
 
-      snaprollInstance.updateRate = newSimulationRate
-      expect(snaprollInstance.updateRate).toBe(newSimulationRate)
+      snaprollInstance.updateRate = newUpdateRate
+      expect(snaprollInstance.updateRate).toBe(newUpdateRate)
     })
 
     it('rejects invalid updateRate values through setter with descriptive errors', () => {
@@ -327,26 +363,26 @@ describe('Animation Loop Integration Tests', () => {
     it('executes animation actions in correct chronological order: Begin → Update → Draw', () => {
       const frameConfig = { drawRate: 60, updateRate: 60 }
       const snaprollInstance = new Snaproll(frameConfig)
-      const capturedActions: SnaprollAction[] = []
+      const capturedContexts: SnaprollContext[] = []
 
       snaprollInstance.subscribe((action) => {
-        capturedActions.push({ ...action })
+        capturedContexts.push({ ...action })
         return undefined
       })
 
       startAnimationLoop(snaprollInstance)
       advanceOneFrame(16.67)
 
-      expect(capturedActions.length).toBeGreaterThan(0)
+      expect(capturedContexts.length).toBeGreaterThan(0)
 
-      const beginActionIndex = capturedActions.findIndex(
-        (action) => action.type === SnaprollActionType.Begin,
+      const beginActionIndex = capturedContexts.findIndex(
+        (context) => context.action === SnaprollActionType.Begin,
       )
-      const updateActionIndex = capturedActions.findIndex(
-        (action) => action.type === SnaprollActionType.Update,
+      const updateActionIndex = capturedContexts.findIndex(
+        (context) => context.action === SnaprollActionType.Update,
       )
-      const drawActionIndex = capturedActions.findIndex(
-        (action) => action.type === SnaprollActionType.Draw,
+      const drawActionIndex = capturedContexts.findIndex(
+        (context) => context.action === SnaprollActionType.Draw,
       )
 
       expect(beginActionIndex).toBeGreaterThanOrEqual(0)
@@ -364,21 +400,25 @@ describe('Animation Loop Integration Tests', () => {
     it('provides accurate timing data in all action types', () => {
       const frameConfig = { drawRate: 60, updateRate: 60 }
       const snaprollInstance = new Snaproll(frameConfig)
-      const capturedActions: SnaprollAction[] = []
+      const capturedContexts: SnaprollContext[] = []
 
       snaprollInstance.subscribe((action) => {
-        capturedActions.push({ ...action })
+        capturedContexts.push({ ...action })
         return undefined
       })
 
       startAnimationLoop(snaprollInstance)
       advanceOneFrame(16.67)
 
-      const beginAction = capturedActions.find((action) => action.type === SnaprollActionType.Begin)
-      const updateAction = capturedActions.find(
-        (action) => action.type === SnaprollActionType.Update,
+      const beginAction = capturedContexts.find(
+        (context) => context.action === SnaprollActionType.Begin,
       )
-      const drawAction = capturedActions.find((action) => action.type === SnaprollActionType.Draw)
+      const updateAction = capturedContexts.find(
+        (context) => context.action === SnaprollActionType.Update,
+      )
+      const drawAction = capturedContexts.find(
+        (context) => context.action === SnaprollActionType.Draw,
+      )
 
       expect(beginAction).toBeDefined()
       if (beginAction !== undefined) {
@@ -407,12 +447,12 @@ describe('Animation Loop Integration Tests', () => {
       const frameTimes: number[] = []
       let lastTimestamp = 0
 
-      loop.subscribe((action) => {
-        if (action.type === SnaprollActionType.Draw) {
+      loop.subscribe((context) => {
+        if (context.action === SnaprollActionType.Draw) {
           if (lastTimestamp > 0) {
-            frameTimes.push(action.timestamp - lastTimestamp)
+            frameTimes.push(context.timestamp - lastTimestamp)
           }
-          lastTimestamp = action.timestamp
+          lastTimestamp = context.timestamp
         }
         return undefined
       })
@@ -435,7 +475,7 @@ describe('Animation Loop Integration Tests', () => {
 
     it('handles variable frame timing gracefully', () => {
       const loop = new Snaproll({ drawRate: 60, updateRate: 60 })
-      const actions: SnaprollAction[] = []
+      const actions: SnaprollContext[] = []
 
       loop.subscribe((action) => {
         actions.push({ ...action })
@@ -448,11 +488,11 @@ describe('Animation Loop Integration Tests', () => {
       const frameTimes = [16.67, 33.33, 8.33, 25, 16.67]
       frameTimes.forEach((time) => advanceOneFrame(time))
 
-      const updateActions = actions.filter((a) => a.type === SnaprollActionType.Update)
-      const drawActions = actions.filter((a) => a.type === SnaprollActionType.Draw)
+      const updateContexts = actions.filter((a) => a.action === SnaprollActionType.Update)
+      const drawContexts = actions.filter((a) => a.action === SnaprollActionType.Draw)
 
-      expect(updateActions.length).toBeGreaterThan(0)
-      expect(drawActions.length).toBeGreaterThan(0)
+      expect(updateContexts.length).toBeGreaterThan(0)
+      expect(drawContexts.length).toBeGreaterThan(0)
 
       // Should handle timing gracefully without errors
       expect(actions.length).toBeGreaterThan(frameTimes.length * 2) // At least Begin + Draw per frame
@@ -541,7 +581,7 @@ describe('Edge Cases and Error Handling', () => {
 
     it('handles very high updateRate values', () => {
       const loop = new Snaproll({ drawRate: 60, updateRate: 10_000 })
-      const actions: SnaprollAction[] = []
+      const actions: SnaprollContext[] = []
 
       loop.subscribe((action) => {
         actions.push({ ...action })
@@ -551,15 +591,15 @@ describe('Edge Cases and Error Handling', () => {
       startAnimationLoop(loop)
       advanceOneFrame(16.67)
 
-      const updateActions = actions.filter((a) => a.type === SnaprollActionType.Update)
-      expect(updateActions.length).toBeGreaterThan(100) // Many small updates
+      const updateContexts = actions.filter((a) => a.action === SnaprollActionType.Update)
+      expect(updateContexts.length).toBeGreaterThan(100) // Many small updates
 
       loop.pause()
     })
 
     it('handles very low updateRate values', () => {
       const loop = new Snaproll({ drawRate: 60, updateRate: 10 })
-      const actions: SnaprollAction[] = []
+      const actions: SnaprollContext[] = []
 
       loop.subscribe((action) => {
         actions.push({ ...action })
@@ -569,8 +609,8 @@ describe('Edge Cases and Error Handling', () => {
       loop.resume()
       timeController.advance(16.67)
 
-      const updateActions = actions.filter((a) => a.type === SnaprollActionType.Update)
-      expect(updateActions.length).toBe(0) // No updates in short frame
+      const updateContexts = actions.filter((a) => a.action === SnaprollActionType.Update)
+      expect(updateContexts.length).toBe(0) // No updates in short frame
 
       loop.pause()
     })
@@ -737,12 +777,12 @@ describe('Essential Animation Behavior', () => {
     const updateRate = 60
     const loop = new Snaproll({ drawRate: 60, updateRate })
 
-    const updateActions: SnaprollActionUpdate[] = []
+    const updateContexts: SnaprollActionUpdate[] = []
     let totalFrameTime = 0
 
-    loop.subscribe((action) => {
-      if (action.type === SnaprollActionType.Update) {
-        updateActions.push(action)
+    loop.subscribe((context) => {
+      if (context.action === SnaprollActionType.Update) {
+        updateContexts.push(context)
       }
       return undefined
     })
@@ -757,7 +797,7 @@ describe('Essential Animation Behavior', () => {
     })
 
     const timestep = 1000 / updateRate
-    const totalUpdateTime = updateActions.length * timestep
+    const totalUpdateTime = updateContexts.length * timestep
     const expectedUpdateTime = Math.floor(totalFrameTime / timestep) * timestep
 
     // Practical tolerance - within one timestep
@@ -768,7 +808,7 @@ describe('Essential Animation Behavior', () => {
 
   it('maintains proper action sequence ordering', () => {
     const loop = new Snaproll({ drawRate: 60, updateRate: 60 })
-    const actions: SnaprollAction[] = []
+    const actions: SnaprollContext[] = []
 
     loop.subscribe((action) => {
       actions.push({ ...action })
@@ -786,13 +826,13 @@ describe('Essential Animation Behavior', () => {
     let lastBeginIndex = -1
     let lastDrawIndex = -1
 
-    actions.forEach((action, index) => {
-      if (action.type === SnaprollActionType.Begin) {
+    actions.forEach((context, index) => {
+      if (context.action === SnaprollActionType.Begin) {
         lastBeginIndex = index
-      } else if (action.type === SnaprollActionType.Draw) {
+      } else if (context.action === SnaprollActionType.Draw) {
         expect(index).toBeGreaterThan(lastBeginIndex)
         lastDrawIndex = index
-      } else if (action.type === SnaprollActionType.Update) {
+      } else if (context.action === SnaprollActionType.Update) {
         expect(index).toBeGreaterThan(lastBeginIndex)
         if (lastDrawIndex > lastBeginIndex) {
           expect(index).toBeLessThan(lastDrawIndex)
@@ -922,10 +962,10 @@ describe('Cross-FPS Behavior Validation', () => {
   it('adapts to realistic browser frame timing variations without issues', () => {
     const standardConfig = { drawRate: 60, updateRate: 60 }
     const snaprollInstance = new Snaproll(standardConfig)
-    const capturedActions: SnaprollAction[] = []
+    const capturedContexts: SnaprollContext[] = []
 
     snaprollInstance.subscribe((action) => {
-      capturedActions.push({ ...action })
+      capturedContexts.push({ ...action })
       return undefined
     })
 
@@ -936,13 +976,15 @@ describe('Cross-FPS Behavior Validation', () => {
     // const variableFrameIntervals = [1000 / 60, 1000 / 60, 1000 / 60, 1000 / 60]
     variableFrameIntervals.forEach((frameInterval) => advanceOneFrame(frameInterval))
 
-    const beginActions = capturedActions.filter(
-      (action) => action.type === SnaprollActionType.Begin,
+    const beginContexts = capturedContexts.filter(
+      (context) => context.action === SnaprollActionType.Begin,
     )
-    const drawActions = capturedActions.filter((action) => action.type === SnaprollActionType.Draw)
+    const drawContexts = capturedContexts.filter(
+      (context) => context.action === SnaprollActionType.Draw,
+    )
 
-    expect(beginActions.length).toBeGreaterThanOrEqual(variableFrameIntervals.length - 1)
-    expect(drawActions.length).toBeGreaterThanOrEqual(variableFrameIntervals.length - 1)
+    expect(beginContexts.length).toBeGreaterThanOrEqual(variableFrameIntervals.length - 1)
+    expect(drawContexts.length).toBeGreaterThanOrEqual(variableFrameIntervals.length - 1)
 
     snaprollInstance.pause()
   })
@@ -956,17 +998,17 @@ describe('Cross-FPS Behavior Validation', () => {
       drawRate: snaprollTargetDrawRate,
       updateRate: snaprollTargetDrawRate,
     })
-    const capturedBeginActions: SnaprollAction[] = []
-    const capturedUpdateActions: SnaprollAction[] = []
-    const capturedDrawActions: SnaprollAction[] = []
+    const capturedBeginContexts: SnaprollContext[] = []
+    const capturedUpdateContexts: SnaprollContext[] = []
+    const capturedDrawContexts: SnaprollContext[] = []
 
-    loop.subscribe((action) => {
-      if (action.type === SnaprollActionType.Begin) {
-        capturedBeginActions.push(action)
-      } else if (action.type === SnaprollActionType.Update) {
-        capturedUpdateActions.push(action)
-      } else if (action.type === SnaprollActionType.Draw) {
-        capturedDrawActions.push(action)
+    loop.subscribe((context) => {
+      if (context.action === SnaprollActionType.Begin) {
+        capturedBeginContexts.push(context)
+      } else if (context.action === SnaprollActionType.Update) {
+        capturedUpdateContexts.push(context)
+      } else if (context.action === SnaprollActionType.Draw) {
+        capturedDrawContexts.push(context)
       }
       return undefined
     })
@@ -974,15 +1016,17 @@ describe('Cross-FPS Behavior Validation', () => {
     startAnimationLoop(loop)
 
     // Simulate 1 second by advancing 60 frames at 16.67ms intervals
-    const simulationFrames = frameAdvanceRate
-    for (let frameIndex = 0; frameIndex < simulationFrames; frameIndex++) {
+    const updateFrames = frameAdvanceRate
+    for (let frameIndex = 0; frameIndex < updateFrames; frameIndex++) {
       advanceOneFrame(frameAdvanceInterval)
     }
 
     // All action types should execute at snaproll's configured rate, not the frame advance rate
-    expect(isApproximatelyEqual(capturedBeginActions.length, snaprollTargetDrawRate, 1)).toBe(true)
-    expect(isApproximatelyEqual(capturedDrawActions.length, snaprollTargetDrawRate, 1)).toBe(true)
-    expect(isApproximatelyEqual(capturedUpdateActions.length, snaprollTargetDrawRate, 1)).toBe(true)
+    expect(isApproximatelyEqual(capturedBeginContexts.length, snaprollTargetDrawRate, 1)).toBe(true)
+    expect(isApproximatelyEqual(capturedDrawContexts.length, snaprollTargetDrawRate, 1)).toBe(true)
+    expect(isApproximatelyEqual(capturedUpdateContexts.length, snaprollTargetDrawRate, 1)).toBe(
+      true,
+    )
 
     loop.pause()
   })
@@ -990,14 +1034,14 @@ describe('Cross-FPS Behavior Validation', () => {
   it('handles large time advance that triggers updateStep >= 10 and skips draw when callback returns true', () => {
     const updateRate = 60
     const loop = new Snaproll({ drawRate: 60, updateRate })
-    const capturedActions: SnaprollAction[] = []
+    const capturedContexts: SnaprollContext[] = []
     let largeUpdateStepDetected = false
 
-    loop.subscribe((action) => {
-      capturedActions.push({ ...action })
+    loop.subscribe((context) => {
+      capturedContexts.push({ ...context })
 
       // Return true when we detect updateStep >= 10 to trigger skip-draw behavior
-      if (action.type === SnaprollActionType.Update && action.updateStep >= 10) {
+      if (context.action === SnaprollActionType.Update && context.updateStep >= 10) {
         largeUpdateStepDetected = true
         return true
       }
@@ -1015,24 +1059,26 @@ describe('Cross-FPS Behavior Validation', () => {
     expect(largeUpdateStepDetected).toBe(true)
 
     // Verify action sequence: Begin should execute
-    const beginActions = capturedActions.filter(
-      (action) => action.type === SnaprollActionType.Begin,
+    const beginContexts = capturedContexts.filter(
+      (context) => context.action === SnaprollActionType.Begin,
     )
-    expect(beginActions.length).toBe(1)
+    expect(beginContexts.length).toBe(1)
 
     // Verify that Update actions executed with large updateStep values
-    const updateActions = capturedActions.filter(
-      (action) => action.type === SnaprollActionType.Update,
+    const updateContexts = capturedContexts.filter(
+      (context) => context.action === SnaprollActionType.Update,
     )
-    expect(updateActions.length).toBe(1)
+    expect(updateContexts.length).toBe(1)
 
     // Should have an update step >= 10
-    const largeUpdateSteps = updateActions.filter((action) => action.updateStep >= 10)
+    const largeUpdateSteps = updateContexts.filter((action) => action.updateStep >= 10)
     expect(largeUpdateSteps.length).toBe(1)
 
     // Verify that Draw action was skipped (should be 0 draw actions)
-    const drawActions = capturedActions.filter((action) => action.type === SnaprollActionType.Draw)
-    expect(drawActions.length).toBe(0)
+    const drawContexts = capturedContexts.filter(
+      (context) => context.action === SnaprollActionType.Draw,
+    )
+    expect(drawContexts.length).toBe(0)
 
     loop.pause()
   })
@@ -1086,6 +1132,163 @@ describe('Performance Validation Tests', () => {
   })
 })
 
+describe('Interpolation and Quantization Tests', () => {
+  describe('Rate-Agnostic Monotonicity Tests', () => {
+    const testCases = [
+      { description: 'barely above (edge case)', drawRate: 60, updateRate: 61 },
+      { description: 'moderate difference', drawRate: 60, updateRate: 121 },
+      { description: 'high update rate', drawRate: 60, updateRate: 240 },
+      { description: 'very high ratio', drawRate: 30, updateRate: 301 },
+    ]
+
+    testCases.forEach(({ description, drawRate, updateRate }) => {
+      it(`validates monotonicity for ${updateRate}/${drawRate} Hz (${description})`, () => {
+        const frameTimes = Array.from({ length: 50 }, (_, index) => 12 + (index % 13)) // 12-24ms range
+        const { interpolatedPositions, updatesPerDraw, velocity } =
+          testMonotonicityWithUpdateTracking(updateRate, drawRate, frameTimes)
+
+        expect(interpolatedPositions.length).toBeGreaterThan(10)
+
+        // Core validation: strict monotonicity
+        for (let index = 1; index < interpolatedPositions.length; index++) {
+          expect(interpolatedPositions[index]).toBeGreaterThanOrEqual(
+            interpolatedPositions[index - 1],
+          )
+        }
+
+        // Sharp lower bound validation for m=1 cases
+        const Q = 1 << Math.ceil(Math.log2(drawRate))
+        const minStep = velocity / Q
+
+        for (let index = 1; index < interpolatedPositions.length; index++) {
+          if (updatesPerDraw[index] === 1) {
+            const step = interpolatedPositions[index] - interpolatedPositions[index - 1]
+            expect(step).toBeGreaterThanOrEqual(minStep - 1e-9)
+          }
+        }
+      })
+    })
+  })
+
+  it('validates exact alpha quantization grid membership', () => {
+    const drawRate = 60
+    const updateRate = 120
+    const loop = new Snaproll({ drawRate, updateRate })
+
+    const alphaValues: number[] = []
+
+    loop.subscribe((context) => {
+      if (context.action === SnaprollActionType.Draw) {
+        alphaValues.push(context.alpha)
+      }
+      return undefined
+    })
+
+    startAnimationLoop(loop)
+
+    // Generate diverse frame timing to exercise quantization
+    for (let index = 0; index < 50; index++) {
+      advanceOneFrame(14 + ((index * 1.7) % 10)) // 14-24ms with fractional offsets
+    }
+
+    const Q = 1 << Math.ceil(Math.log2(drawRate)) // 64 for drawRate=60
+
+    expect(alphaValues.length).toBeGreaterThan(20)
+
+    alphaValues.forEach((alpha) => {
+      // Exact grid membership check
+      const k = Math.round(alpha * Q)
+      expect(Math.abs(alpha * Q - k)).toBeLessThan(1e-9) // on the grid
+      expect(k).toBeGreaterThanOrEqual(0)
+      expect(k).toBeLessThan(Q) // ensures alpha < 1
+    })
+
+    loop.pause()
+  })
+
+  it('property-based fuzz test: monotonicity holds for random configurations', () => {
+    const trials = 50 // Reduced for reasonable test time
+
+    for (let trial = 0; trial < trials; trial++) {
+      const drawRate = 30 + Math.floor(Math.random() * 91) // 30-120
+      const updateRate = drawRate + 1 + Math.floor(Math.random() * 180) // drawRate+1 to drawRate+180
+
+      // Generate random frame timing
+      const frameTimes = Array.from({ length: 30 }, () => 12 + Math.random() * 13) // 12-25ms
+
+      const { interpolatedPositions } = testMonotonicityWithUpdateTracking(
+        updateRate,
+        drawRate,
+        frameTimes,
+      )
+
+      // Assert monotonicity for this random configuration
+      for (let index = 1; index < interpolatedPositions.length; index++) {
+        if (interpolatedPositions[index] < interpolatedPositions[index - 1]) {
+          throw new Error(
+            `Monotonicity violation at trial ${trial} with rates ${updateRate}/${drawRate}: ` +
+              `position ${index - 1}=${interpolatedPositions[index - 1]} > position ${index}=${interpolatedPositions[index]}`,
+          )
+        }
+      }
+    }
+  })
+
+  it('negative control: proves endpoint bookkeeping mistakes cause backwards motion', () => {
+    const updateRate = 120
+    const drawRate = 60
+    const loop = new Snaproll({ drawRate, updateRate })
+    const velocity = 10
+
+    let currentPosition = 0
+    let wrongPreviousPosition = 0 // Intentionally wrong bookkeeping
+    let drawCount = 0
+    const interpolatedPositions: number[] = []
+
+    loop.subscribe((context) => {
+      if (context.action === SnaprollActionType.Update) {
+        currentPosition += velocity
+      } else if (context.action === SnaprollActionType.Draw) {
+        drawCount++
+
+        // Simulate common bookkeeping mistake: using stale "previous" that's multiple updates behind
+        // eslint-disable-next-line unicorn/prefer-ternary
+        if (drawCount > 3) {
+          // After a few draws, use an outdated previous position to create backwards interpolation
+          wrongPreviousPosition = currentPosition - 4 * velocity // 4 updates behind
+        } else {
+          wrongPreviousPosition = currentPosition - velocity // Start with correct previous
+        }
+
+        // Intentionally wrong interpolation using stale previous position
+        const pos = (1 - context.alpha) * wrongPreviousPosition + context.alpha * currentPosition
+        interpolatedPositions.push(pos)
+      }
+      return undefined
+    })
+
+    startAnimationLoop(loop)
+
+    // Run enough frames to trigger the bookkeeping error pattern
+    for (let index = 0; index < 15; index++) {
+      advanceOneFrame(16.67)
+    }
+
+    loop.pause()
+
+    // Should detect backwards motion due to wrong endpoint usage
+    let foundBackwardsMotion = false
+    for (let index = 1; index < interpolatedPositions.length; index++) {
+      if (interpolatedPositions[index] < interpolatedPositions[index - 1]) {
+        foundBackwardsMotion = true
+        break
+      }
+    }
+
+    expect(foundBackwardsMotion).toBe(true) // Proves the cause of apparent reversals
+  })
+})
+
 describe('Legacy Compatibility Tests', () => {
   it('maintains compatibility with original test pattern', () => {
     const updateRate = 60
@@ -1098,15 +1301,15 @@ describe('Legacy Compatibility Tests', () => {
     loop.subscribe((value) => {
       const timestamp = timeController.now()
 
-      if (value.type === SnaprollActionType.Begin) {
+      if (value.action === SnaprollActionType.Begin) {
         begin(value, timestamp)
       }
 
-      if (value.type === SnaprollActionType.Update) {
+      if (value.action === SnaprollActionType.Update) {
         update(value, timestamp)
       }
 
-      if (value.type === SnaprollActionType.Draw) {
+      if (value.action === SnaprollActionType.Draw) {
         draw(value, timestamp)
       }
       return undefined

@@ -85,14 +85,14 @@ const boxes = range(32).map((_, index) => {
     { immediate: true, flush: 'sync' },
   )
 
-  const subscription: SnaprollSubscription = (action) => {
-    switch (action.type) {
+  const subscription: SnaprollSubscription = (context) => {
+    switch (context.action) {
       case SnaprollActionType.Begin:
         break
       case SnaprollActionType.Update:
-        const jump = action.updateStep >= 100
+        const jump = context.updateStep >= 100
 
-        const timestep = jump ? action.updateStep * action.timestep : action.timestep
+        const timestep = jump ? context.updateStep * context.timestep : context.timestep
 
         updateBox(box as BoxState, timestep)
 
@@ -105,7 +105,7 @@ const boxes = range(32).map((_, index) => {
         const value = lerp(
           box.lastPosition,
           box.position,
-          action.alpha,
+          context.alpha,
           // 1 - Math.pow(0.25, action.alpha),
         )
 
