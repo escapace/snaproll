@@ -1156,18 +1156,72 @@ describe('Interpolation and Quantization Tests', () => {
           )
         }
 
-        // Sharp lower bound validation for m=1 cases
-        const Q = 1 << Math.ceil(Math.log2(drawRate))
-        const minStep = velocity / Q
+        // Validate sharp lower bound for m=1 cases when they exist
+        const m1Cases = updatesPerDraw.filter((m) => m === 1)
+        if (m1Cases.length > 0) {
+          const Q = 1 << Math.ceil(Math.log2(drawRate))
+          const minStep = velocity / Q
 
-        for (let index = 1; index < interpolatedPositions.length; index++) {
-          if (updatesPerDraw[index] === 1) {
-            const step = interpolatedPositions[index] - interpolatedPositions[index - 1]
-            expect(step).toBeGreaterThanOrEqual(minStep - 1e-9)
+          for (let index = 1; index < interpolatedPositions.length; index++) {
+            if (updatesPerDraw[index] === 1) {
+              const step = interpolatedPositions[index] - interpolatedPositions[index - 1]
+              // Scale-aware tolerance relative to step magnitude
+              const tolerance = Math.max(1e-12, 32 * Number.EPSILON * Math.abs(minStep))
+              expect(step + tolerance).toBeGreaterThanOrEqual(minStep)
+            }
           }
+        }
+
+        // Draw gating robustness check: mostly informational, strict only for edge cases
+        const zeroUpdateDraws = updatesPerDraw.filter((m) => m === 0).length
+        const totalDraws = updatesPerDraw.length
+
+        if (updateRate === drawRate + 1) {
+          // For u=d+1, allow more zero-update draws due to timing sensitivity
+          if (zeroUpdateDraws / totalDraws > 0.5) {
+            console.warn(
+              `High zero-update draw ratio for ${updateRate}/${drawRate}: ${zeroUpdateDraws}/${totalDraws}`,
+            )
+          }
+        } else {
+          // For other rates, most draws should have ≥1 update
+          expect(zeroUpdateDraws / totalDraws).toBeLessThan(0.2)
         }
       })
     })
+  })
+
+  it('validates sharp m=1 lower bound (critical corner case)', () => {
+    // Use 61/60 Hz configuration which reliably produces m=1 cases
+    const updateRate = 61
+    const drawRate = 60
+    const { interpolatedPositions, updatesPerDraw, velocity } = testMonotonicityWithUpdateTracking(
+      updateRate,
+      drawRate,
+      Array.from({ length: 100 }, (_, index) => 16 + (index % 5)), // 16-20ms timing variation
+    )
+
+    // Guarantee we test the m=1 corner case
+    const m1Cases = updatesPerDraw.filter((m) => m === 1)
+    expect(m1Cases.length).toBeGreaterThan(0)
+
+    // Validate the sharp theoretical lower bound for m=1 cases
+    const Q = 1 << Math.ceil(Math.log2(drawRate))
+    const minStep = velocity / Q
+
+    let validatedM1Cases = 0
+    for (let index = 1; index < interpolatedPositions.length; index++) {
+      if (updatesPerDraw[index] === 1) {
+        const step = interpolatedPositions[index] - interpolatedPositions[index - 1]
+        // Scale-aware tolerance relative to step magnitude
+        const tolerance = Math.max(1e-12, 32 * Number.EPSILON * Math.abs(minStep))
+        expect(step + tolerance).toBeGreaterThanOrEqual(minStep)
+        validatedM1Cases++
+      }
+    }
+
+    // Ensure we actually validated some m=1 cases
+    expect(validatedM1Cases).toBeGreaterThan(0)
   })
 
   it('validates exact alpha quantization grid membership', () => {
@@ -1196,14 +1250,308 @@ describe('Interpolation and Quantization Tests', () => {
     expect(alphaValues.length).toBeGreaterThan(20)
 
     alphaValues.forEach((alpha) => {
-      // Exact grid membership check
+      // Exact grid membership check - Q is power-of-2, so α = k/Q is exactly representable
       const k = Math.round(alpha * Q)
-      expect(Math.abs(alpha * Q - k)).toBeLessThan(1e-9) // on the grid
+      const tolerance = Math.max(64 * Number.EPSILON, 64 * Number.EPSILON * Math.abs(alpha * Q))
+      expect(Math.abs(alpha * Q - k)).toBeLessThan(tolerance)
       expect(k).toBeGreaterThanOrEqual(0)
       expect(k).toBeLessThan(Q) // ensures alpha < 1
     })
 
     loop.pause()
+  })
+
+  it('validates theory identity: step = (m + Δα) × velocity', () => {
+    const updateRate = 120
+    const drawRate = 60
+    const loop = new Snaproll({ drawRate, updateRate })
+    const velocity = 5
+
+    let previousPosition = 0
+    let currentPosition = 0
+    let updatesSinceLastDraw = 0
+    const interpolatedPositions: number[] = []
+    const updatesPerDraw: number[] = []
+    const alphaValues: number[] = []
+
+    loop.subscribe((context) => {
+      if (context.action === SnaprollActionType.Update) {
+        previousPosition = currentPosition
+        currentPosition += velocity
+        updatesSinceLastDraw++
+      } else if (context.action === SnaprollActionType.Draw) {
+        const pos = (1 - context.alpha) * previousPosition + context.alpha * currentPosition
+        interpolatedPositions.push(pos)
+        updatesPerDraw.push(updatesSinceLastDraw)
+        alphaValues.push(context.alpha)
+        updatesSinceLastDraw = 0
+      }
+      return undefined
+    })
+
+    startAnimationLoop(loop)
+
+    // Use diverse frame timing for rich test coverage
+    const frameTimes = [16.67, 17.2, 16.1, 18, 16.8, 15.9, 17.5, 16.2, 17.8, 16.5]
+    frameTimes.forEach((frameTime) => advanceOneFrame(frameTime))
+    loop.pause()
+
+    expect(interpolatedPositions.length).toBeGreaterThan(5)
+
+    // Guard array invariants
+    expect(interpolatedPositions.length).toBe(updatesPerDraw.length)
+    expect(interpolatedPositions.length).toBe(alphaValues.length)
+
+    // Validate theory identity: step = (m + Δα) × velocity
+    for (let index = 1; index < interpolatedPositions.length; index++) {
+      const step = interpolatedPositions[index] - interpolatedPositions[index - 1]
+      const m = updatesPerDraw[index]
+      const deltaAlpha = alphaValues[index] - alphaValues[index - 1]
+      const expectedStep = (m + deltaAlpha) * velocity
+
+      // Scale-aware tolerance for theory identity
+      const tolerance = Math.max(1e-10, 64 * Number.EPSILON * Math.abs(expectedStep))
+      expect(Math.abs(step - expectedStep)).toBeLessThan(tolerance)
+    }
+  })
+
+  it('validates non-power-of-two-ish drawRates maintain lower bounds', () => {
+    const testCases = [
+      { description: 'Q=64 > d=59', drawRate: 59, updateRate: 60 },
+      { description: 'Q=128 > d=95', drawRate: 95, updateRate: 96 },
+    ]
+
+    testCases.forEach(({ drawRate, updateRate }) => {
+      const { interpolatedPositions, updatesPerDraw, velocity } =
+        testMonotonicityWithUpdateTracking(
+          updateRate,
+          drawRate,
+          Array.from({ length: 30 }, (_, index) => 16 + (index % 3)), // 16-18ms timing
+        )
+
+      // Verify monotonicity
+      for (let index = 1; index < interpolatedPositions.length; index++) {
+        expect(interpolatedPositions[index]).toBeGreaterThanOrEqual(
+          interpolatedPositions[index - 1],
+        )
+      }
+
+      // Validate lower bound for m=1 cases with Q > drawRate
+      const Q = 1 << Math.ceil(Math.log2(drawRate))
+      const minStep = velocity / Q
+      expect(Q).toBeGreaterThan(drawRate) // Verify Q > d property
+
+      for (let index = 1; index < interpolatedPositions.length; index++) {
+        if (updatesPerDraw[index] === 1) {
+          const step = interpolatedPositions[index] - interpolatedPositions[index - 1]
+          const tolerance = Math.max(1e-12, 32 * Number.EPSILON * Math.abs(minStep))
+          expect(step + tolerance).toBeGreaterThanOrEqual(minStep)
+        }
+      }
+    })
+  })
+
+  it('validates quantization with tiny steps (precision edge case)', () => {
+    const updateRate = 120
+    const drawRate = 60
+    const loop = new Snaproll({ drawRate, updateRate })
+    const tinyVelocity = 1e-6 // Very small per-update step
+
+    let previousPosition = 0
+    let currentPosition = 0
+    let updatesSinceLastDraw = 0
+    const interpolatedPositions: number[] = []
+    const updatesPerDraw: number[] = []
+
+    loop.subscribe((context) => {
+      if (context.action === SnaprollActionType.Update) {
+        previousPosition = currentPosition
+        currentPosition += tinyVelocity
+        updatesSinceLastDraw++
+      } else if (context.action === SnaprollActionType.Draw) {
+        const pos = (1 - context.alpha) * previousPosition + context.alpha * currentPosition
+        interpolatedPositions.push(pos)
+        updatesPerDraw.push(updatesSinceLastDraw)
+        updatesSinceLastDraw = 0
+      }
+      return undefined
+    })
+
+    startAnimationLoop(loop)
+
+    // Run with variable timing to exercise quantization
+    const frameTimes = [16.67, 17.2, 16.1, 18, 16.8, 15.9, 17.5, 16.67, 17.2, 16.1]
+    frameTimes.forEach((frameTime) => advanceOneFrame(frameTime))
+    loop.pause()
+
+    expect(interpolatedPositions.length).toBeGreaterThan(5)
+
+    // Core validation: monotonicity even with tiny steps
+    for (let index = 1; index < interpolatedPositions.length; index++) {
+      expect(interpolatedPositions[index]).toBeGreaterThanOrEqual(interpolatedPositions[index - 1])
+    }
+
+    // Verify m=1 cases still satisfy lower bound (with slightly looser FP tolerance)
+    const Q = 1 << Math.ceil(Math.log2(drawRate))
+    const minStep = tinyVelocity / Q
+
+    for (let index = 1; index < interpolatedPositions.length; index++) {
+      if (updatesPerDraw[index] === 1) {
+        const step = interpolatedPositions[index] - interpolatedPositions[index - 1]
+        // Scale-aware tolerance for tiny velocity
+        const tolerance = Math.max(1e-12, 32 * Number.EPSILON * Math.abs(minStep))
+        expect(step + tolerance).toBeGreaterThanOrEqual(minStep)
+      }
+    }
+  })
+
+  it('when m=0, alpha is non-decreasing and positions stay non-decreasing', () => {
+    const drawRate = 60
+    const updateRate = 61
+    const loop = new Snaproll({ drawRate, updateRate })
+    const velocity = 10
+
+    let previousPosition = 0
+    let currentPosition = 0
+    let updatesSinceLastDraw = 0
+    const interpolatedPositions: number[] = []
+    const updatesPerDraw: number[] = []
+    const alphaValues: number[] = []
+
+    loop.subscribe((context) => {
+      if (context.action === SnaprollActionType.Update) {
+        previousPosition = currentPosition
+        currentPosition += velocity
+        updatesSinceLastDraw++
+      } else if (context.action === SnaprollActionType.Draw) {
+        const pos = (1 - context.alpha) * previousPosition + context.alpha * currentPosition
+        interpolatedPositions.push(pos)
+        updatesPerDraw.push(updatesSinceLastDraw)
+        alphaValues.push(context.alpha)
+        updatesSinceLastDraw = 0
+      }
+      return undefined
+    })
+
+    startAnimationLoop(loop)
+
+    // Many short draws to induce occasional m=0 intervals
+    const frameTimes = Array.from({ length: 120 }, (_, index) => 12 + (index % 4)) // 12–15 ms
+    frameTimes.forEach((frameTime) => advanceOneFrame(frameTime))
+    loop.pause()
+
+    // Guard array invariants
+    expect(interpolatedPositions.length).toBe(updatesPerDraw.length)
+    expect(interpolatedPositions.length).toBe(alphaValues.length)
+
+    for (let index = 1; index < interpolatedPositions.length; index++) {
+      // Still non-decreasing overall
+      expect(interpolatedPositions[index]).toBeGreaterThanOrEqual(interpolatedPositions[index - 1])
+
+      // Critical: when m=0, alpha must be non-decreasing (no updates, α rises within same bracket)
+      if (updatesPerDraw[index] === 0) {
+        expect(alphaValues[index]).toBeGreaterThanOrEqual(alphaValues[index - 1])
+        expect(interpolatedPositions[index]).toBeGreaterThanOrEqual(
+          interpolatedPositions[index - 1],
+        )
+      }
+    }
+  })
+
+  it('monotone with varying per-update increments remains non-decreasing', () => {
+    const drawRate = 60
+    const updateRate = 180
+    const loop = new Snaproll({ drawRate, updateRate })
+    let previousPosition = 0
+    let currentPosition = 0
+    let k = 0
+    const positions: number[] = []
+
+    loop.subscribe((context) => {
+      if (context.action === SnaprollActionType.Update) {
+        // Increasing Δx_k (gentle acceleration)
+        const delta = 1 + 0.001 * k++
+        previousPosition = currentPosition
+        currentPosition += delta
+      } else if (context.action === SnaprollActionType.Draw) {
+        positions.push((1 - context.alpha) * previousPosition + context.alpha * currentPosition)
+      }
+      return undefined
+    })
+
+    startAnimationLoop(loop)
+    for (let index = 0; index < 80; index++) {
+      advanceOneFrame(12 + Math.random() * 13)
+    }
+    loop.pause()
+
+    expect(positions.length).toBeGreaterThan(50)
+
+    // Monotonicity holds even with varying step sizes
+    for (let index = 1; index < positions.length; index++) {
+      expect(positions[index]).toBeGreaterThanOrEqual(positions[index - 1])
+    }
+  })
+
+  it('handles big stutter frames with multi-update bursts', () => {
+    const updateRate = 120
+    const drawRate = 60
+    const loop = new Snaproll({ drawRate, updateRate })
+    const velocity = 8
+
+    let previousPosition = 0
+    let currentPosition = 0
+    let updatesSinceLastDraw = 0
+    const interpolatedPositions: number[] = []
+    const updatesPerDraw: number[] = []
+    const alphaValues: number[] = []
+
+    loop.subscribe((context) => {
+      if (context.action === SnaprollActionType.Update) {
+        previousPosition = currentPosition
+        currentPosition += velocity
+        updatesSinceLastDraw++
+      } else if (context.action === SnaprollActionType.Draw) {
+        const pos = (1 - context.alpha) * previousPosition + context.alpha * currentPosition
+        interpolatedPositions.push(pos)
+        updatesPerDraw.push(updatesSinceLastDraw)
+        alphaValues.push(context.alpha)
+        updatesSinceLastDraw = 0
+      }
+      return undefined
+    })
+
+    startAnimationLoop(loop)
+
+    // Big stutter pattern: normal frames mixed with fat frames that cause m >> 1
+    const stutterFrameTimes = [16.67, 100, 8.33, 100, 16.67, 150, 12, 120, 16.67, 16.67]
+    stutterFrameTimes.forEach((frameTime) => advanceOneFrame(frameTime))
+    loop.pause()
+
+    // Guard array invariants
+    expect(interpolatedPositions.length).toBe(updatesPerDraw.length)
+    expect(interpolatedPositions.length).toBe(alphaValues.length)
+    expect(interpolatedPositions.length).toBeGreaterThan(5)
+
+    // Verify we got some large m values (double digits)
+    const largeUpdateCounts = updatesPerDraw.filter((m) => m >= 10)
+    expect(largeUpdateCounts.length).toBeGreaterThan(0)
+
+    // Core validation: monotonicity even with large update bursts
+    for (let index = 1; index < interpolatedPositions.length; index++) {
+      expect(interpolatedPositions[index]).toBeGreaterThanOrEqual(interpolatedPositions[index - 1])
+    }
+
+    // Theory identity holds even with large m values
+    for (let index = 1; index < interpolatedPositions.length; index++) {
+      const step = interpolatedPositions[index] - interpolatedPositions[index - 1]
+      const m = updatesPerDraw[index]
+      const deltaAlpha = alphaValues[index] - alphaValues[index - 1]
+      const expectedStep = (m + deltaAlpha) * velocity
+
+      const tolerance = Math.max(1e-10, 64 * Number.EPSILON * Math.abs(expectedStep))
+      expect(Math.abs(step - expectedStep)).toBeLessThan(tolerance)
+    }
   })
 
   it('property-based fuzz test: monotonicity holds for random configurations', () => {

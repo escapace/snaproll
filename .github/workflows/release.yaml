@@ -51,3 +51,11 @@ jobs:
       changelog: ${{ needs.context.outputs.changelog }}
       prerelease: ${{ fromJSON(needs.context.outputs.prerelease) }}
       version: ${{ needs.context.outputs.version }}
+
+  release-github-pages:
+    if: needs.context.outputs.environment == 'production' || needs.context.outputs.environment == 'staging'
+    needs:
+      - context
+      - ci-typescript
+      - release-typescript
+    uses: escapace/workflows/.github/workflows/release-github-pages.yaml@trunk

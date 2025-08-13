@@ -6,7 +6,7 @@
         :key="box.id"
         ref="boxReferences"
         class="box"
-        :style="{ width: `${box.width}vw`, 'background-color': `${box.color}` }"
+        :style="{ 'width': `${box.width}vw`, 'background-color': `${box.color}` }"
       ></div>
     </div>
   </div>

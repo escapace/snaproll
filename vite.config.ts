@@ -8,17 +8,17 @@ const packageJSON = JSON.parse(await readFile(path.resolve('./package.json'), 'u
   version: string
 }
 
-export default defineConfig((environment) => ({
+export default defineConfig({
   build: {
-    outDir: 'lib/vite',
+    outDir: 'lib/github-pages',
   },
   define: {
     ...constants.builds.browser.define,
-    __ENVIRONMENT__: JSON.stringify(environment.mode),
+    __ENVIRONMENT__: JSON.stringify('development'),
     __VERSION__: JSON.stringify(packageJSON.version),
   },
   plugins: [vue()],
   server: {
     allowedHosts: true,
   },
-}))
+})

@@ -1,42 +1,111 @@
+/**
+ * Animation frame phases.
+ */
 export enum SnaprollActionType {
   Begin,
   Update,
   Draw,
 }
 
+/**
+ * Frame initialization action.
+ */
 export interface SnaprollActionBegin {
   action: SnaprollActionType.Begin
+  /** Current frame time */
   timestamp: number
 }
 
+/**
+ * Fixed timestep animation logic action.
+ * The updateStep counts down remaining updates in the current frame.
+ */
 export interface SnaprollActionUpdate extends Omit<SnaprollActionBegin, 'action'> {
   action: SnaprollActionType.Update
+  /** Time to advance per update */
   timestep: number
+  /** Remaining updates this frame, counts down to 1 */
   updateStep: number
 }
 
+/**
+ * Interpolated drawing action.
+ */
 export interface SnaprollActionDraw extends Omit<SnaprollActionUpdate, 'action'> {
   action: SnaprollActionType.Draw
+  /** Interpolation factor [0, 1) */
   alpha: number
 }
 
+/**
+ * Context interface for application-specific state.
+ *
+ * @remarks
+ * Uses TypeScript declaration merging to allow augmentation with custom properties.
+ * Extended properties become available in all subscription callbacks.
+ *
+ * @example
+ * ```ts
+ * declare module 'snaproll' {
+ *   interface SnaprollUserContext {
+ *     score: number
+ *   }
+ * }
+ * ```
+ */
 // eslint-disable-next-line typescript/no-empty-object-type, typescript/no-empty-interface
 export interface SnaprollUserContext {}
 
+/**
+ * Context object passed to subscription callbacks during animation frames.
+ *
+ * @remarks
+ * Discriminated union that combines action-specific interfaces with user context.
+ * Available properties depend on the current action type: Begin, Update, or Draw.
+ */
 export type SnaprollContext = (SnaprollActionBegin | SnaprollActionDraw | SnaprollActionUpdate) &
   SnaprollUserContext
 
+/**
+ * Control interface for managing individual animation subscriptions.
+ *
+ * @remarks
+ * Each subscription operates independently. Pausing one subscription does not affect others.
+ * The animation loop continues running as long as any subscription remains active.
+ */
 export interface SnaprollSubscriptionControls {
+  /** Pauses this subscription */
   pause: () => void
+  /** Resumes this subscription */
   resume: () => void
+  /** Removes this subscription */
   unsubscribe: () => void
 }
 
+/**
+ * Subscription callback function.
+ *
+ * @remarks
+ * Return value controls frame execution flow:
+ * - `true` from Begin phase skips the entire frame
+ * - `true` from Update phase skips remaining updates and draw for current frame
+ * - `undefined` or `false` continues normal execution
+ */
 export type SnaprollSubscription = (context: SnaprollContext) => boolean | undefined
 
+/**
+ * Configuration interface for animation loop.
+ *
+ * @remarks
+ * drawRate and updateRate operate independently, allowing different frequencies
+ * for draw and update rates.
+ */
 export interface SnaprollOptions {
+  /** Draw rate in Hz, controls visual frame timing */
   drawRate: number
+  /** Update rate in Hz, determines fixed timestep size */
   updateRate: number
+  /** Optional shared state object passed to all subscription callbacks */
   context?: SnaprollUserContext
 }
 
@@ -204,12 +273,6 @@ const createUpdateRateStorePartial = (
 const createDrawRateStorePartial = (
   drawRate: number,
 ): Pick<Store, 'drawRate' | 'quantizationGrid' | 'targetFrameTime'> => {
-  /**
-   * Power-of-two temporal quantization lattice for interpolation discretization.
-   *
-   * @remarks
-   * Applied via: floor(value * GRID) / GRID
-   */
   const quantizationGrid = 1 << Math.ceil(Math.log2(drawRate))
   const targetFrameTime = 1000 / drawRate
 
@@ -297,6 +360,9 @@ const createAnimate = (store: Store, callback: () => ReturnType<SnaprollSubscrip
   return animate
 }
 
+/**
+ * Fixed-timestep animation loop with independent draw and update rates.
+ */
 export class Snaproll {
   private readonly callback = (): ReturnType<SnaprollSubscription> => {
     const { context, subscriptions: activeSubscriptions } = this.store
@@ -332,6 +398,9 @@ export class Snaproll {
 
   private store: Store
 
+  /**
+   * Creates animation loop instance with specified configuration.
+   */
   constructor(options: Partial<SnaprollOptions> = {}) {
     this.store = createStore(options)
   }
@@ -347,6 +416,9 @@ export class Snaproll {
     store.state = TypeState.Idle
   }
 
+  /**
+   * Stops animation while keeping subscriptions.
+   */
   public pause() {
     const store = this.store
 
@@ -361,6 +433,9 @@ export class Snaproll {
     store.state = TypeState.Paused
   }
 
+  /**
+   * Resets the animation loop with optional configuration updates.
+   */
   public reset(
     options: { keepContext?: boolean; keepSubscriptions?: boolean } & Partial<SnaprollOptions> = {},
   ) {
@@ -407,6 +482,9 @@ export class Snaproll {
     }
   }
 
+  /**
+   * Resumes animation.
+   */
   public resume() {
     const store = this.store
 
@@ -426,6 +504,13 @@ export class Snaproll {
     }
   }
 
+  /**
+   * Registers subscription callback for animation frame processing.
+   *
+   * @param value - Callback function to execute during frame processing
+   * @param options - Subscription configuration with immediate activation flag
+   * @returns Control object for pausing, resuming, and removing subscription
+   */
   public subscribe(
     value: SnaprollSubscription,
     options?: { immediate?: boolean },
@@ -479,24 +564,42 @@ export class Snaproll {
     }
   }
 
+  /**
+   * Current animation loop state.
+   *
+   * Returns 'active' when running animation frames, 'idle' when no active subscriptions,
+   * or 'paused' when stopped by pause().
+   */
   public get state() {
     return STATES[this.store.state]
   }
 
+  /**
+   * Gets current update rate in Hz.
+   */
   public get updateRate() {
     return this.store.updateRate
   }
 
+  /**
+   * Sets update rate in Hz.
+   */
   public set updateRate(value: number) {
     assertIsUpdateRate(value)
 
     Object.assign(this.store, createUpdateRateStorePartial(value))
   }
 
+  /**
+   * Gets current draw rate in Hz.
+   */
   public get drawRate() {
     return this.store.drawRate
   }
 
+  /**
+   * Sets draw rate in Hz.
+   */
   public set drawRate(value: number) {
     assertIsDrawRate(value)
 
