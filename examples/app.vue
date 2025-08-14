@@ -5,13 +5,12 @@
 </template>
 
 <script setup lang="ts">
-import { useBattery, useLocalStorage } from '@vueuse/core'
+import { useBattery, useDocumentVisibility, useLocalStorage } from '@vueuse/core'
 import { Pane } from 'tweakpane'
-import { onMounted, provide, watch } from 'vue'
+import { onMounted, provide, ref, shallowRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Snaproll, SnaprollActionType } from '../src'
 import { FrequencyEstimation, MovingAverage, RmsIntervalJitter } from './utilities'
-import { useDocumentVisibility } from '@vueuse/core'
 
 const battery = useBattery()
 const visibility = useDocumentVisibility()
@@ -19,8 +18,6 @@ const visibility = useDocumentVisibility()
 const snaproll = new Snaproll()
 
 watch(visibility, (current, previous) => {
-  // or snaproll.resetPendingTime()
-
   if (current === 'visible' && previous === 'hidden') {
     snaproll.resume()
   } else {
@@ -33,6 +30,85 @@ watch(battery.charging, () => snaproll.reset())
 const drawRate = useLocalStorage('drawRate', snaproll.drawRate)
 const updateRate = useLocalStorage('updateRate', snaproll.updateRate)
 const perceptualAngle = useLocalStorage('perceptualAngle', 0.25)
+
+interface Instrumentation {
+  estimationBegin: FrequencyEstimation
+  estimationDraw: FrequencyEstimation
+  estimationUpdate: FrequencyEstimation
+  estimationFrameDrop: FrequencyEstimation
+  estimationFrameJitter: RmsIntervalJitter
+  estimationFrameAlphaJitter: MovingAverage
+  estimationQuantizationGrid: MovingAverage
+  dispose: () => void
+}
+
+const createInstrumentation = (): Instrumentation => {
+  const estimationBegin = new FrequencyEstimation()
+  const estimationUpdate = new FrequencyEstimation()
+  const estimationDraw = new FrequencyEstimation()
+  const estimationFrameDrop = new FrequencyEstimation()
+  const estimationFrameJitter = new RmsIntervalJitter()
+  const estimationFrameAlphaJitter = new MovingAverage()
+  const estimationQuantizationGrid = new MovingAverage()
+
+  const observer = new PerformanceObserver((list) => {
+    const entries = list.getEntries()
+
+    for (let index = 0; index < entries.length; index++) {
+      const entry = entries[index]
+
+      if (entry.entryType !== 'mark') {
+        continue
+      }
+
+      if (entry.name === 'snaproll-animate-frame-drop') {
+        estimationFrameDrop.update(entry.startTime)
+      } else if (entry.name === 'snaproll-animate-frame-jitter') {
+        const { deltaTime, interpolationAlphaJitter, quantizationGrid } =
+          // @ts-expect-error detail is not typed
+          entry.detail as Record<string, number>
+        estimationFrameAlphaJitter.update(interpolationAlphaJitter, entry.startTime)
+        estimationQuantizationGrid.update(quantizationGrid, entry.startTime)
+        estimationFrameJitter.update(deltaTime, entry.startTime)
+      }
+    }
+  })
+
+  performance.clearMarks()
+  observer.observe({ entryTypes: ['mark'] })
+
+  const dispose = () => {
+    observer.disconnect()
+  }
+
+  return {
+    estimationBegin,
+    estimationUpdate,
+    estimationDraw,
+    estimationFrameDrop,
+    estimationFrameJitter,
+    estimationFrameAlphaJitter,
+    estimationQuantizationGrid,
+    dispose,
+  }
+}
+
+const instruments = shallowRef<Instrumentation | undefined>()
+const instrumentation = ref(false)
+
+watch(
+  instrumentation,
+  (value) => {
+    instruments.value?.dispose()
+
+    if (value) {
+      instruments.value = createInstrumentation()
+    } else {
+      instruments.value = undefined
+    }
+  },
+  { immediate: true },
+)
 
 watch(
   drawRate,
@@ -54,84 +130,37 @@ provide('drawRate', drawRate)
 provide('updateRate', updateRate)
 provide('perceptualAngle', perceptualAngle)
 
-const estimationBegin = new FrequencyEstimation()
-const estimationUpdate = new FrequencyEstimation()
-const estimationDraw = new FrequencyEstimation()
-const estimationFrameDrop = new FrequencyEstimation()
-const estimationFrameJitter = new RmsIntervalJitter()
-const estimationFrameAlphaJitter = new MovingAverage()
-const estimationQuantizationGrid = new MovingAverage()
-
-const observer = new PerformanceObserver((list) => {
-  const entries = list.getEntries()
-
-  for (let index = 0; index < entries.length; index++) {
-    const entry = entries[index]
-
-    if (entry.entryType !== 'mark') {
-      continue
-    }
-
-    if (entry.name === 'snaproll-animate-frame-drop') {
-      estimationFrameDrop.update(entry.startTime)
-    } else if (entry.name === 'snaproll-animate-frame-jitter') {
-      const { deltaTime, interpolationAlphaJitter, quantizationGrid } =
-        // @ts-expect-error detail is not typed
-        entry.detail as Record<string, number>
-      estimationFrameAlphaJitter.update(interpolationAlphaJitter, entry.startTime)
-      estimationQuantizationGrid.update(quantizationGrid, entry.startTime)
-      estimationFrameJitter.update(deltaTime, entry.startTime)
-    }
-  }
-})
-
-const graphs = {
-  get 'begin'() {
-    return estimationBegin.value()
-  },
-  get 'update'() {
-    return estimationUpdate.value()
-  },
-  get 'draw'() {
-    return estimationDraw.value()
-  },
-  get 'drop'() {
-    return estimationFrameDrop.value()
-  },
-  get 'frame jitter'() {
-    return estimationFrameJitter.value()
-  },
-  get 'alpha jitter'() {
-    return estimationFrameAlphaJitter.value()
-  },
-}
-
-const numbers = {
-  get 'quantization grid'() {
-    return estimationQuantizationGrid.value()
-  },
-}
-
 const pane = new Pane({ expanded: true })
 const controls = pane.addFolder({ title: 'Controls' })
 const examples = pane.addFolder({ title: 'Examples' })
-const folder = pane.addFolder({ title: 'Measurements' })
+const measurements = pane.addFolder({ title: 'Measurements' })
+measurements.expanded = instrumentation.value
+
+measurements.on('fold', ({ expanded }) => {
+  instrumentation.value = expanded
+})
 
 const router = useRouter()
 
 controls.addButton({ title: 'pause' }).on('click', () => {
+  // TODO: return boolean if successful?
   snaproll.pause()
-  folder.disabled = snaproll.state === 'paused'
+  measurements.expanded = snaproll.state !== 'paused'
+  measurements.disabled = snaproll.state === 'paused'
 })
 
 controls.addButton({ title: 'resume' }).on('click', () => {
+  // TODO: return boolean if successful?
   snaproll.resume()
-  folder.disabled = snaproll.state === 'paused'
+  measurements.expanded = measurements.expanded && snaproll.state !== 'paused'
+  measurements.disabled = snaproll.state === 'paused'
 })
 
 controls.addButton({ title: 'reset' }).on('click', () => {
+  // TODO: return boolean if successful?
   snaproll.reset()
-  folder.disabled = snaproll.state === 'paused'
+  measurements.expanded = measurements.expanded && snaproll.state !== 'paused'
+  measurements.disabled = snaproll.state === 'paused'
 })
 
 controls.addBinding(drawRate, 'value', { min: 1, max: 200, label: 'draw rate', step: 1 })
@@ -168,8 +197,35 @@ examples
     router.push('/rectangles')
   })
 
+const graphs = {
+  get 'begin'() {
+    return instruments.value?.estimationBegin.value() ?? 0
+  },
+  get 'update'() {
+    return instruments.value?.estimationUpdate.value() ?? 0
+  },
+  get 'draw'() {
+    return instruments.value?.estimationDraw.value() ?? 0
+  },
+  get 'drop'() {
+    return instruments.value?.estimationFrameDrop.value() ?? 0
+  },
+  get 'frame jitter'() {
+    return instruments.value?.estimationFrameJitter.value() ?? 0
+  },
+  get 'alpha jitter'() {
+    return instruments.value?.estimationFrameAlphaJitter.value() ?? 0
+  },
+}
+
+const numbers = {
+  get 'quantization grid'() {
+    return instruments.value?.estimationQuantizationGrid.value() ?? 0
+  },
+}
+
 for (const key of Object.keys(numbers)) {
-  folder.addBinding(numbers, key as keyof typeof numbers, {
+  measurements.addBinding(numbers, key as keyof typeof numbers, {
     view: 'text',
     label: `${key}`,
     parse: (value: number) => `${value.toPrecision(10)}`,
@@ -178,14 +234,14 @@ for (const key of Object.keys(numbers)) {
 }
 
 for (const key of Object.keys(graphs)) {
-  folder.addBinding(graphs, key as keyof typeof graphs, {
+  measurements.addBinding(graphs, key as keyof typeof graphs, {
     view: 'text',
     label: `${key}`,
     parse: (value: number) => `${value.toPrecision(6)}`,
     readonly: true,
   })
 
-  folder.addBinding(graphs, key as keyof typeof graphs, {
+  measurements.addBinding(graphs, key as keyof typeof graphs, {
     label: '',
     readonly: true,
     view: 'graph',
@@ -208,21 +264,17 @@ for (const key of Object.keys(graphs)) {
 }
 
 onMounted(() => {
-  performance.clearMarks()
-  observer.observe({ entryTypes: ['mark'] })
-  pane.element.style.opacity = '0.9'
-
   snaproll.subscribe((context): undefined => {
     if (context.action === SnaprollActionType.Begin) {
-      estimationBegin.update()
+      instruments.value?.estimationBegin.update()
     }
 
     if (context.action === SnaprollActionType.Update) {
-      estimationUpdate.update()
+      instruments.value?.estimationUpdate.update()
     }
 
     if (context.action === SnaprollActionType.Draw) {
-      estimationDraw.update()
+      instruments.value?.estimationDraw.update()
     }
   })
 
