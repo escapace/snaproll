@@ -30,9 +30,10 @@ watch(visibility, (current, previous) => {
 
 watch(battery.charging, () => snaproll.reset())
 
-const drawRate = useLocalStorage('drawRate', 30)
-const updateRate = useLocalStorage('updateRate', 60)
-const perceptualAngle = useLocalStorage('perceptualAngle', 0.5)
+const drawRate = useLocalStorage('drawRate', snaproll.drawRate)
+const updateRate = useLocalStorage('updateRate', snaproll.updateRate)
+const perceptualAngle = useLocalStorage('perceptualAngle', 0.25)
+
 watch(
   drawRate,
   (value) => {
