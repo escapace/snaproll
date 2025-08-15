@@ -24,7 +24,8 @@ jobs:
     with:
       enable-artifact-upload: true
       enable-codecov: ${{ !github.event.repository.private }}
-      enable-github-pages: true
+      enable-github-pages: ${{ needs.context.outputs.github-pages }}
+      github-pages-path: ${{ needs.context.outputs.github-pages-path }}
       node-version: ${{ needs.context.outputs.node-version }}
       pnpm-version: ${{ needs.context.outputs.pnpm-version }}
       ref: ${{ needs.context.outputs.ref }}
@@ -54,7 +55,7 @@ jobs:
       version: ${{ needs.context.outputs.version }}
 
   release-github-pages:
-    if: needs.context.outputs.environment == 'production' || needs.context.outputs.environment == 'staging'
+    if: needs.context.outputs.github-pages && (needs.context.outputs.environment == 'production' || needs.context.outputs.environment == 'staging')
     needs:
       - context
       - ci-typescript
