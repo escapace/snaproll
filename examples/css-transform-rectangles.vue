@@ -145,5 +145,6 @@ const boxes = range(32).map((_, index) => {
   margin-top: 0.05vw;
   margin-left: 0.05vw;
   margin-right: 0.05vw;
+  will-change: transform;
 }
 </style>

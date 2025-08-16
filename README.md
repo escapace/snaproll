@@ -70,9 +70,13 @@ snaproll.reset({
 - **updateRate** — how often animation logic runs (defaults to 60 Hz).
 - **drawRate** — how often frames draw to screen (defaults to 60 Hz).
 
+### Timing system
+
+Snaproll uses a bang-bang digital PLL (phase-locked loop) that captures requestAnimationFrame edges nearest to the target cadence. The PLL computes phase error in target-frame units and uses a symmetric dead-zone to determine when to advance the target timestamp. This keeps timing error bounded to within ±0.5 target frame periods while decimating 120→60, 60→30, 60→24 Hz cleanly without drift.
+
 ### Quantized interpolation
 
-During the Draw phase, snaproll provides an `alpha` value [0, 1) representing fractional progress toward the next update. The alpha value is quantized to a power-of-two grid based on the draw rate. The quantization grid is calculated as `2^⌈log₂(drawRate)⌉`. For example, a 60 Hz draw rate uses a 64-step quantization grid, creating ~1.5625% steps instead of perfect 1.667% (1/60). This controlled aliasing improves visual consistency at the cost of temporal precision.
+During the Draw phase, snaproll provides an `alpha` value [0, 1) representing fractional progress toward the next update. The alpha value is quantized to a power-of-two grid based on the draw rate. The quantization grid is calculated as `2^⌈log₂(drawRate)⌉`. For example, a 60 Hz draw rate uses a 64-step quantization grid. The alpha is calculated as `Math.min((grid-1)/grid, Math.round(alpha*grid)/grid)`, which caps values and rounds to the nearest grid step. This controlled quantization improves visual consistency at the cost of temporal precision.
 
 ### Configuration
 

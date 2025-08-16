@@ -122,6 +122,11 @@ type Context = Omit<SnaprollUserContext, 'action' | 'alpha' | 'timestamp' | 'tim
 
 const DEFAULT_UPDATE_RATE = 60
 const DEFAULT_DRAW_RATE = 60
+// Half-width of the dead-zone. Using (0.5 - EPS) makes the effective thresholds
+// symmetric at ±(0.5 + EPS) after truncation (see `k` below).
+// EPS (1e-3) is a tiny epsilon to keep decisions stable at the ±0.5 boundaries despite FP noise.
+// Chosen small enough not to matter visually, big enough to break ties deterministically.
+const DEAD_ZONE_HALF_WIDTH = 0.5 - 1e-3
 
 const isPositiveNumber = (input: unknown): input is number =>
   typeof input === 'number' && input > 0 && Number.isFinite(input)
@@ -178,7 +183,6 @@ const STATES = {
 interface Store {
   context: Context
   drawRate: number
-  frameIndex: number
   pendingAnimationFrame: number
   pendingTime: number
   quantizationGrid: number
@@ -186,6 +190,7 @@ interface Store {
   subscriptions: SnaprollSubscription[]
   subscriptionStateMap: Map<SnaprollSubscription, SubscriptionState>
   targetFrameTime: number
+  targetTimestamp: number
   timestamp: number
   timestep: number
   updateRate: number
@@ -242,17 +247,17 @@ const createStore = (
     }
   }
 
-  const frameIndex = 0
+  const targetTimestamp = 0
   const pendingTime = 0
 
   return {
     context,
-    frameIndex,
     pendingAnimationFrame,
     pendingTime,
     state,
     subscriptions,
     subscriptionStateMap,
+    targetTimestamp,
     timestamp,
     ...createDrawRateStorePartial(drawRate),
     ...createUpdateRateStorePartial(updateRate),
@@ -288,19 +293,37 @@ const createAnimate = (store: Store, callback: () => ReturnType<SnaprollSubscrip
 
   function animate(now: number): void {
     store.pendingAnimationFrame = requestAnimationFrame(animate)
-    const frameIndex = (now / store.targetFrameTime) | 0
 
-    // /* modulo phase resampler */
-    // if ((now + targetFrameTime * 0.5) % targetFrameTime > deltaTime) {
-    /* deterministic phase-gate */
-    if (frameIndex === store.frameIndex) {
+    const { targetFrameTime, targetTimestamp } = store
+
+    // Phase error in *target-frame units*: how far `now` is from the scheduled target.
+    // e > 0 → we're *late* (now is after the target), e < 0 → we're *early*.
+    const phaseError = (now - targetTimestamp) / targetFrameTime
+    // Integer number of target periods to advance (k > 0) or slip back (k < 0).
+    // Implementation: add/subtract `half` then truncate toward zero via `| 0` (32-bit).
+    // This acts as an unbiased bang-bang phase detector:
+    //   if   e ≥  +0.5 + EPS  → k ≥ +1  (step forward)
+    //   if  -0.5 - EPS < e < +0.5 + EPS → k = 0   (within dead-zone; no step)
+    //   if   e ≤  -0.5 - EPS  → k ≤ −1  (step backward)
+    // Notes:
+    // - `| 0` is equivalent to Math.trunc for finite numbers and is safe here since k ∈ {…,−1,0,+1,…}.
+    // - The symmetric ±(0.5+EPS) thresholds eliminate tie bias at +0.5 vs −0.5.
+    const k =
+      (phaseError >= 0 ? phaseError + DEAD_ZONE_HALF_WIDTH : phaseError - DEAD_ZONE_HALF_WIDTH) | 0
+
+    // If no step is needed, we're still inside the dead-zone, so skip work this tick.
+    if (k === 0) {
       if (__ENVIRONMENT__ !== 'production') {
         performance.mark('snaproll-animate-frame-drop')
       }
       return
     }
 
-    store.frameIndex = frameIndex
+    // Apply the decided step: move the digital controlled clock (DCO) by k periods.
+    // This re-centers residual phase r = (now - targetTimestamp)/T into (−0.5, +0.5),
+    // keeping the loop locked while decimating rAF to your target cadence.
+    store.targetTimestamp = store.targetTimestamp + k * targetFrameTime
+
     context.action = SnaprollActionType.Begin
     context.timestamp = now
 
@@ -340,12 +363,16 @@ const createAnimate = (store: Store, callback: () => ReturnType<SnaprollSubscrip
     store.pendingTime = pendingTime
     context.action = SnaprollActionType.Draw
     /**
-     * quantizationGrid is a user set temporal frequency in hertz, same as frames per
-     * second. (60 by default)
+     * quantizationGrid is calculated from drawRate in hertz as `1 << Math.ceil(Math.log2(drawRate))`
      */
     const quantizationGrid = store.quantizationGrid
     const alpha = pendingTime / timestep
-    context.alpha = ((alpha * quantizationGrid) | 0) / quantizationGrid
+    // context.alpha = alpha
+    // context.alpha = ((alpha * quantizationGrid) | 0) / quantizationGrid
+    context.alpha = Math.min(
+      (quantizationGrid - 1) / quantizationGrid,
+      Math.round(alpha * quantizationGrid) / quantizationGrid,
+    )
     callback()
 
     if (__ENVIRONMENT__ !== 'production') {
@@ -498,7 +525,7 @@ export class Snaproll {
       store.pendingAnimationFrame = requestAnimationFrame((now) => {
         store.pendingTime = 0
         store.timestamp = now
-        store.frameIndex = (now / store.targetFrameTime) | 0
+        store.targetTimestamp = now
         store.pendingAnimationFrame = requestAnimationFrame(createAnimate(store, this.callback))
       })
     }

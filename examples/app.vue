@@ -248,13 +248,13 @@ for (const key of Object.keys(graphs)) {
     bufferSize: 100,
     ...(key === 'alpha jitter'
       ? {
-          min: -10,
-          max: 10,
+          min: -3,
+          max: 3,
         }
       : key === 'frame jitter'
         ? {
             min: 0,
-            max: 50,
+            max: 25,
           }
         : {
             min: 0,
