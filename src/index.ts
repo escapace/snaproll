@@ -185,7 +185,9 @@ interface Store {
   drawRate: number
   pendingAnimationFrame: number
   pendingTime: number
+  quantizationAlphaMax: number
   quantizationGrid: number
+  quantizationGridInverse: number
   state: TypeState
   subscriptions: SnaprollSubscription[]
   subscriptionStateMap: Map<SnaprollSubscription, SubscriptionState>
@@ -193,6 +195,7 @@ interface Store {
   targetTimestamp: number
   timestamp: number
   timestep: number
+  timestepInverse: number
   updateRate: number
 }
 
@@ -266,24 +269,38 @@ const createStore = (
 
 const createUpdateRateStorePartial = (
   updateRate: number,
-): Pick<Store, 'timestep' | 'updateRate'> => {
+): Pick<Store, 'timestep' | 'timestepInverse' | 'updateRate'> => {
   const timestep = 1000 / updateRate
+  const timestepInverse = 1 / timestep
 
   return {
     timestep,
+    timestepInverse,
     updateRate,
   }
 }
 
 const createDrawRateStorePartial = (
   drawRate: number,
-): Pick<Store, 'drawRate' | 'quantizationGrid' | 'targetFrameTime'> => {
+): Pick<
+  Store,
+  | 'drawRate'
+  | 'quantizationAlphaMax'
+  | 'quantizationGrid'
+  | 'quantizationGridInverse'
+  | 'targetFrameTime'
+> => {
   const quantizationGrid = 1 << Math.ceil(Math.log2(drawRate))
+  const quantizationGridMask = quantizationGrid - 1
+  const quantizationGridInverse = 1 / quantizationGrid
+  const quantizationAlphaMax = quantizationGridMask * quantizationGridInverse
   const targetFrameTime = 1000 / drawRate
 
   return {
     drawRate,
+    quantizationAlphaMax,
     quantizationGrid,
+    quantizationGridInverse,
     targetFrameTime,
   }
 }
@@ -308,8 +325,16 @@ const createAnimate = (store: Store, callback: () => ReturnType<SnaprollSubscrip
     // Notes:
     // - `| 0` is equivalent to Math.trunc for finite numbers and is safe here since k ∈ {…,−1,0,+1,…}.
     // - The symmetric ±(0.5+EPS) thresholds eliminate tie bias at +0.5 vs −0.5.
-    const k =
-      (phaseError >= 0 ? phaseError + DEAD_ZONE_HALF_WIDTH : phaseError - DEAD_ZONE_HALF_WIDTH) | 0
+    //
+    // Conditional expression approach (slightly slower)
+    // const k =
+    //   (phaseError >= 0 ? phaseError + DEAD_ZONE_HALF_WIDTH : phaseError - DEAD_ZONE_HALF_WIDTH) | 0
+    // Alternative manual sign calculation approach (equivalent performance)
+    // const s = +(phaseError > 0) - +(phaseError < 0) // 1, 0, or -1 without branching
+    // const k = (phaseError + s * DEAD_ZONE_HALF_WIDTH) | 0
+    // Use Math.sign() for dead zone adjustment: single-line implementation with
+    // well-understood built-in function provides slight better performance.
+    const k = (phaseError + Math.sign(phaseError) * DEAD_ZONE_HALF_WIDTH) | 0
 
     // If no step is needed, we're still inside the dead-zone, so skip work this tick.
     if (k === 0) {
@@ -322,7 +347,7 @@ const createAnimate = (store: Store, callback: () => ReturnType<SnaprollSubscrip
     // Apply the decided step: move the digital controlled clock (DCO) by k periods.
     // This re-centers residual phase r = (now - targetTimestamp)/T into (−0.5, +0.5),
     // keeping the loop locked while decimating rAF to your target cadence.
-    store.targetTimestamp = store.targetTimestamp + k * targetFrameTime
+    store.targetTimestamp = targetTimestamp + k * targetFrameTime
 
     context.action = SnaprollActionType.Begin
     context.timestamp = now
@@ -334,15 +359,16 @@ const createAnimate = (store: Store, callback: () => ReturnType<SnaprollSubscrip
       return
     }
 
+    let pendingTime = store.pendingTime
     const deltaTime = now - store.timestamp
-    let pendingTime = store.pendingTime + deltaTime
+    pendingTime += deltaTime
     store.timestamp = now
 
-    const timestep = store.timestep
+    const timestep = (context.timestep = store.timestep)
     context.action = SnaprollActionType.Update
-    context.timestep = timestep
+    const timestepInverse = store.timestepInverse
 
-    let updateStep = (pendingTime / timestep) | 0
+    let updateStep = (pendingTime * timestepInverse) | 0
 
     while (updateStep > 0) {
       context.updateStep = updateStep
@@ -362,17 +388,15 @@ const createAnimate = (store: Store, callback: () => ReturnType<SnaprollSubscrip
 
     store.pendingTime = pendingTime
     context.action = SnaprollActionType.Draw
-    /**
-     * quantizationGrid is calculated from drawRate in hertz as `1 << Math.ceil(Math.log2(drawRate))`
-     */
-    const quantizationGrid = store.quantizationGrid
-    const alpha = pendingTime / timestep
-    // context.alpha = alpha
-    // context.alpha = ((alpha * quantizationGrid) | 0) / quantizationGrid
-    context.alpha = Math.min(
-      (quantizationGrid - 1) / quantizationGrid,
-      Math.round(alpha * quantizationGrid) / quantizationGrid,
-    )
+    const alpha = pendingTime * timestepInverse
+    // store.quantizationGrid = 1 << Math.ceil(Math.log2(drawRate))
+    // store.quantizationGridMask = quantizationGrid - 1
+    // store.quantizationGridInverse = 1 / quantizationGrid
+    // store.quantizationAlphaMax = quantizationGridMask * quantizationGridInverse
+    const { quantizationAlphaMax, quantizationGrid, quantizationGridInverse } = store
+    const quantizedAlpha = ((alpha * quantizationGrid + 0.5) | 0) * quantizationGridInverse
+    context.alpha = quantizedAlpha < 1 ? quantizedAlpha : quantizationAlphaMax
+
     callback()
 
     if (__ENVIRONMENT__ !== 'production') {
