@@ -188,7 +188,7 @@ export class MockTimeController {
  * Compares floating-point numbers with epsilon tolerance.
  * Necessary because floating-point arithmetic can introduce small rounding errors
  * that make exact equality unreliable for computed values.
- * Uses absolute difference comparison: |a - b| <= epsilon.
+ * Uses absolute difference comparison: `|a - b| <= epsilon`.
  * @param a - First number to compare
  * @param b - Second number to compare
  * @param epsilon - Maximum allowed absolute difference; defaults to 1e-10 for high precision
