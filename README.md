@@ -366,6 +366,32 @@ snaproll.subscribe((context) => {
 })
 ```
 
+## SnaprollDrawRateAdvisor
+
+Measures frame timing to detect display's refresh rate and recommend compatible draw rates.
+
+```js
+import { SnaprollDrawRateAdvisor } from 'snaproll'
+
+// Create advisor with optional configuration
+const advisor = new SnaprollDrawRateAdvisor({
+  samples: 90, // Collect 90 frame intervals
+  warmup: 10, // Skip first 10 frames
+  minDraw: 10, // Minimum recommended rate
+})
+
+// Subscribe to recommendations
+const unsubscribe = advisor.subscribe((response) => {
+  console.log(`Quality score: ${response.score.toFixed(3)}`)
+  console.log(`Recommended rates: ${response.values.join(', ')} Hz`)
+})
+
+// Start analysis
+advisor.trigger()
+```
+
+The advisor provides quality scores [0-1] using RF (Robustness × Fit) formula and recommended draw rates sorted descending. Scores ≥0.85 indicate healthy timing with mild jitter; scores <0.60 show strong evidence of blocking/jitter or regime split and recommend re-running.
+
 ## Examples
 
 View examples at https://escapace.github.io/snaproll/ or see the `examples/` directory:

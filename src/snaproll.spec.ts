@@ -7,7 +7,9 @@ import {
   type SnaprollOptions,
   type SnaprollSubscriptionControls,
 } from './index'
-import { calculateTimingStats, isApproximatelyEqual, MockTimeController } from './test-utilities'
+import { MockTimeController } from './utilities/mock-time-controller'
+import { isApproximatelyEqual } from './utilities/is-approximately-equal'
+import { calculateTimingStats } from './utilities/timing-stats'
 
 // ========================================
 // Test Constants

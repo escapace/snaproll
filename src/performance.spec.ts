@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { Snaproll } from './index'
-import { MockTimeController } from './test-utilities'
+import { MockTimeController } from './utilities/mock-time-controller'
 
 const callback = (): undefined => undefined
 

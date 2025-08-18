@@ -11,21 +11,37 @@ import { onMounted, provide, ref, shallowRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Snaproll, SnaprollActionType } from '../src'
 import { FrequencyEstimation, MovingAverage, RmsIntervalJitter } from './utilities'
+import {
+  SnaprollDrawRateAdvisor,
+  type SnaprollDrawRateAdvisorResponse,
+} from '../src/draw-rate-advisor'
 
 const battery = useBattery()
 const visibility = useDocumentVisibility()
 
 const snaproll = new Snaproll()
+const advisor = new SnaprollDrawRateAdvisor()
+const recommendation = ref<string>('')
+
+onMounted(() => advisor.trigger())
+advisor.subscribe((value) => {
+  recommendation.value = JSON.stringify(value, null, 2)
+  // advisor.trigger()
+})
 
 watch(visibility, (current, previous) => {
   if (current === 'visible' && previous === 'hidden') {
     snaproll.resume()
+    advisor.trigger()
   } else {
     snaproll.pause()
   }
 })
 
-watch(battery.charging, () => snaproll.reset())
+watch(battery.charging, () => {
+  snaproll.reset()
+  advisor.trigger()
+})
 
 const drawRate = useLocalStorage('drawRate', snaproll.drawRate)
 const updateRate = useLocalStorage('updateRate', snaproll.updateRate)
@@ -163,13 +179,33 @@ controls.addButton({ title: 'reset' }).on('click', () => {
   measurements.disabled = snaproll.state === 'paused'
 })
 
-controls.addBinding(drawRate, 'value', { min: 1, max: 200, label: 'draw rate', step: 1 })
+controls.addBinding(drawRate, 'value', {
+  min: 1,
+  max: 240,
+  label: 'draw rate',
+  step: 1,
+})
 controls.addBinding(updateRate, 'value', {
   min: 1,
-  max: 200,
+  max: 240,
   label: 'update rate',
   step: 1,
 })
+
+// const drawRateAdvisorControls = controls.addButton({ title: 'detect' }).on('click', () => {
+//   drawRateAdvisorControls.disabled = true
+//   drawRateControls.disabled = true
+//   updateRateControls.disabled = true
+//
+//   recommendDrawRates().then(({ score, values }) => {
+//     console.log({ score, values })
+//     drawRate.value = values[0]
+//     drawRateControls.refresh()
+//     drawRateAdvisorControls.disabled = false
+//     drawRateControls.disabled = false
+//     updateRateControls.disabled = false
+//   })
+// })
 
 controls.addBlade({ view: 'separator' })
 controls.addBinding(perceptualAngle, 'value', {
@@ -262,6 +298,15 @@ for (const key of Object.keys(graphs)) {
           }),
   })
 }
+
+measurements.addBinding(recommendation, 'value', {
+  view: 'text',
+  label: 'recommendation',
+  readonly: true,
+  multiline: true,
+  parse: (value: unknown) => JSON.stringify(value),
+  rows: 10,
+})
 
 onMounted(() => {
   snaproll.subscribe((context): undefined => {
