@@ -486,11 +486,9 @@ export class Snaproll {
        */
       context:
         keepContext && hasContext
-          ? // eslint-disable-next-line typescript/no-non-null-assertion
-            Object.assign(options.context!, this.store.context)
+          ? Object.assign(options.context!, this.store.context)
           : hasContext
-            ? // eslint-disable-next-line typescript/no-non-null-assertion
-              options.context!
+            ? options.context!
             : keepContext
               ? this.store.context
               : undefined,

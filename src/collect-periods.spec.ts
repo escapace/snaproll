@@ -24,7 +24,6 @@ function expectPeriodsEqual(actual: number[], expected: number[]): void {
 function runCollectPeriods(options: CollectPeriodsOptions, periods: number[]) {
   const request = withPromise(options, collectPeriods)
 
-  // eslint-disable-next-line typescript/prefer-for-of
   for (let index = 0; index < periods.length; index++) {
     timeController.advance(periods[index])
   }

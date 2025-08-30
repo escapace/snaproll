@@ -278,7 +278,6 @@ export class SnaprollDrawRateAdvisor {
       const value = result.value
       const subscriptions = this.subscriptions
 
-      // eslint-disable-next-line typescript/prefer-for-of
       for (let index = 0; index < subscriptions.length; index++) {
         subscriptions[index](value)
       }
