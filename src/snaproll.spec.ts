@@ -1427,7 +1427,7 @@ describe('Interpolation and Quantization Tests', () => {
       advanceOneFrame(14 + ((index * 1.7) % 10)) // 14-24ms with fractional offsets
     }
 
-    const Q = 1 << Math.ceil(Math.log2(drawRate)) // 64 for drawRate=60
+    const Q = 1 << Math.ceil(Math.log2(drawRate * 2)) // 64 for drawRate=60
 
     expect(alphaValues.length).toBeGreaterThan(20)
 

@@ -70,7 +70,9 @@ const setupCanvas = (): void => {
   const canvas = canvasRef.value
   if (!canvas) return
 
-  ctx = canvas.getContext('2d')
+  ctx = canvas.getContext('2d', {
+    alpha: false,
+  })
   if (!ctx) return
 
   const devicePixelRatio = window.devicePixelRatio || 1

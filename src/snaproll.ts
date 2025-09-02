@@ -106,11 +106,26 @@ type Context = Omit<SnaprollUserContext, 'action' | 'alpha' | 'timestamp' | 'tim
 
 const DEFAULT_UPDATE_RATE = 60
 const DEFAULT_DRAW_RATE = 60
-// Half-width of the dead-zone. Using (0.5 - EPS) makes the effective thresholds
-// symmetric at ±(0.5 + EPS) after truncation (see `k` below).
-// EPS (1e-3) is a tiny epsilon to keep decisions stable at the ±0.5 boundaries despite FP noise.
-// Chosen small enough not to matter visually, big enough to break ties deterministically.
-const DEAD_ZONE_HALF_WIDTH = 0.5 - 1e-3
+/**
+ * Dead-zone half-width for the phase detector. Half-width of the dead-zone. Using (0.5 - EPS) makes
+ * the effective thresholds symmetric at ±(0.5 + EPS) after truncation (see `k` below). EPS is a
+ * tiny epsilon to keep decisions stable at the ±0.5 boundaries despite FP noise. Chosen small
+ * enough not to matter visually, big enough to break ties deterministically.
+ *
+ * In plain terms: if we're only about half a frame early/late, we treat it as “close enough”
+ * and do nothing. We only jump a frame when the error is bigger than ~0.5 + EPS frames.
+ *
+ * EPS options:
+ * - Number.EPSILON / 2 — tie-break only. No real buffer; great if timing is rock-solid.
+ * - 1e-3 — small buffer (~0.001 frames ≈ 16.7 µs at 60 Hz). Calms tiny jitter with no visible lag.
+ * - 3e-3 — balanced: ~0.003 frames ≈ 50 µs at 60 Hz. Steadier without feeling sluggish.
+ * - 1e-2 — stronger buffer (~0.01 frames ≈ 0.167 ms at 60 Hz). Best for noisy threads; slightly less snappy.
+ *
+ * Notes:
+ * - This doesn’t change the average frame rate; it only smooths “step now vs next tick” decisions.
+ * - Thresholds are symmetric around ±0.5, so there’s no bias toward stepping early or late.
+ */
+const DEAD_ZONE_HALF_WIDTH = 0.5 - 3e-3 // 3e-3
 
 function assertIsDrawRate(input: unknown): asserts input is number | undefined {
   assert(isPositiveNumberOrUndefined(input), '[snaproll] draw rate must be a positive number')
@@ -261,7 +276,7 @@ const createDrawRateStorePartial = (
   | 'quantizationGridInverse'
   | 'targetFrameTime'
 > => {
-  const quantizationGrid = 1 << Math.ceil(Math.log2(drawRate))
+  const quantizationGrid = 1 << Math.ceil(Math.log2(drawRate * 2))
   const quantizationGridMask = quantizationGrid - 1
   const quantizationGridInverse = 1 / quantizationGrid
   const quantizationAlphaMax = quantizationGridMask * quantizationGridInverse
@@ -279,8 +294,9 @@ const createDrawRateStorePartial = (
 const createAnimate = (store: Store, callback: () => ReturnType<SnaprollSubscription>) => {
   const context = store.context
 
-  function animate(now: number): void {
+  function animate(_now: number): void {
     store.pendingAnimationFrame = requestAnimationFrame(animate)
+    const now = performance.now()
 
     const { targetFrameTime, targetTimestamp } = store
 
@@ -360,7 +376,7 @@ const createAnimate = (store: Store, callback: () => ReturnType<SnaprollSubscrip
     store.pendingTime = pendingTime
     context.action = SnaprollActionType.Draw
     const alpha = pendingTime * timestepInverse
-    // store.quantizationGrid = 1 << Math.ceil(Math.log2(drawRate))
+    // store.quantizationGrid = 1 << Math.ceil(Math.log2(drawRate * 2))
     // store.quantizationGridMask = quantizationGrid - 1
     // store.quantizationGridInverse = 1 / quantizationGrid
     // store.quantizationAlphaMax = quantizationGridMask * quantizationGridInverse
@@ -515,7 +531,8 @@ export class Snaproll {
     store.state = subscriptionActive(store.subscriptionStateMap) ? TypeState.Active : TypeState.Idle
 
     if (store.state === TypeState.Active) {
-      store.pendingAnimationFrame = requestAnimationFrame((now) => {
+      store.pendingAnimationFrame = requestAnimationFrame(() => {
+        const now = performance.now()
         store.pendingTime = 0
         store.timestamp = now
         store.targetTimestamp = now

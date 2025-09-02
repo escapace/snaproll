@@ -72,11 +72,11 @@ snaproll.reset({
 
 ### Timing system
 
-Snaproll uses a bang-bang digital PLL (phase-locked loop) that captures requestAnimationFrame edges nearest to the target cadence. The PLL computes phase error in target-frame units and uses a symmetric dead-zone to determine when to advance the target timestamp. This keeps timing error bounded to within ±0.5 target frame periods while decimating 120→60, 60→30, 60→24 Hz cleanly without drift.
+Snaproll uses a bang-bang digital PLL (phase-locked loop) that captures requestAnimationFrame edges nearest to the target cadence. The PLL uses `performance.now()` for high-precision timing and computes phase error in target-frame units with a symmetric dead-zone (epsilon = 3e-3 ≈ 50µs at 60Hz) to determine when to advance the target timestamp. This keeps timing error bounded to within ±0.5 target frame periods while decimating 120→60 Hz, 144→48 Hz, 60→30 Hz cleanly without drift.
 
 ### Quantized interpolation
 
-During the Draw phase, snaproll provides an `alpha` value [0, 1) representing fractional progress toward the next update. The alpha value is quantized to a power-of-two grid based on the draw rate. The quantization grid is calculated as `2^⌈log₂(drawRate)⌉`. For example, a 60 Hz draw rate uses a 64-step quantization grid. The alpha is calculated as `Math.min((grid-1)/grid, Math.round(alpha*grid)/grid)`, which caps values and rounds to the nearest grid step. This controlled quantization improves visual consistency at the cost of temporal precision.
+During the Draw phase, snaproll provides an `alpha` value [0, 1) representing fractional progress toward the next update. The alpha value is quantized to a power-of-two grid based on the draw rate. The quantization grid is calculated as `2^⌈log₂(drawRate * 2)⌉`. For example, a 60 Hz draw rate uses a 128-step quantization grid. The alpha is calculated as `((alpha * grid + 0.5) | 0) / grid` clamped to `(grid-1)/grid`, which rounds to the nearest grid step. This controlled quantization improves visual consistency at the cost of temporal precision.
 
 ### Configuration
 

@@ -49,6 +49,8 @@ export class MockTimeController {
   }
 
   private setupGlobalMocks(): void {
+    globalThis.performance.now = this.now.bind(this)
+
     globalThis.requestAnimationFrame = (callback: FrameRequestCallback): number => {
       const id = this.nextCallbackId++
       const scheduledTime = this.currentTime + MIN_FRAME_DELAY
