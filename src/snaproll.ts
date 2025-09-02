@@ -294,7 +294,7 @@ const createDrawRateStorePartial = (
 const createAnimate = (store: Store, callback: () => ReturnType<SnaprollSubscription>) => {
   const context = store.context
 
-  function animate(_now: number): void {
+  function animate(): void {
     store.pendingAnimationFrame = requestAnimationFrame(animate)
     const now = performance.now()
 
