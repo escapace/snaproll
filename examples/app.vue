@@ -26,7 +26,7 @@ const recommendation = ref<string>('')
 onMounted(() => advisor.trigger())
 advisor.subscribe((value) => {
   recommendation.value = JSON.stringify(value, null, 2)
-  // advisor.trigger()
+  advisor.trigger()
 })
 
 watch(visibility, (current, previous) => {

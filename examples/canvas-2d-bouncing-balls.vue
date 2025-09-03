@@ -5,14 +5,14 @@
 </template>
 
 <script setup lang="ts">
+import { useWindowSize } from '@vueuse/core'
 import { range } from 'es-toolkit'
-import { inject, onBeforeUnmount, onMounted, ref, watch, type Ref } from 'vue'
+import { inject, onBeforeUnmount, onMounted, shallowRef, watch, type Ref } from 'vue'
 import { SnaprollActionType, type Snaproll, type SnaprollSubscription } from '../src'
 import { decomposeVelocityMagnitude, lerp } from './utilities'
-import { useWindowSize } from '@vueuse/core'
 
 const snaproll = inject<Snaproll>('snaproll')!
-const canvasRef = ref<HTMLCanvasElement>()
+const canvasRef = shallowRef<HTMLCanvasElement>()
 
 interface BallState {
   index: number
@@ -72,6 +72,7 @@ const setupCanvas = (): void => {
 
   ctx = canvas.getContext('2d', {
     alpha: false,
+    willReadFrequently: false
   })
   if (!ctx) return
 
@@ -116,8 +117,8 @@ const drawBalls = (alpha: number): void => {
   const canvasHeight = canvas.clientHeight
 
   // Clear background
-  ctx.fillStyle = 'black'
-  ctx.fillRect(0, 0, canvasWidth, canvasHeight)
+  // ctx.fillStyle = 'black'
+  ctx.clearRect(0, 0, canvasWidth, canvasHeight)
 
   // Draw all balls
   for (const ball of balls) {
