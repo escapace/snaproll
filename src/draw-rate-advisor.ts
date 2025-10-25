@@ -133,11 +133,17 @@ export interface SnaprollDrawRateAdvisorResponse {
    * Higher scores indicate better data consistency and more reliable recommendations.
    *
    * Score interpretation:
+   *
    * - `0.95–1.00`: Rock-solid. Extremely stable capture, fits a canonical/divisor cleanly
+   *
    * - `0.85–0.95`: Healthy. Mild jitter only; values are trustworthy
+   *
    * - `0.75–0.85`: Borderline steady. Noticeable instability or light regime mixing; fine for most uses, re-run if chasing perfection
+   *
    * - `0.60–0.75`: Shaky. Significant jitter or likely mid-phase change; consider re-running
+   *
    * - `< 0.60`   : Unstable. Strong evidence of blocking/jitter or regime split; re-run recommended
+   *
    */
   score: number
   /**

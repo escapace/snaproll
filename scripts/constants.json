@@ -11,5 +11,12 @@
       "platform": "browser",
       "target": ["chrome137", "firefox139", "edge137", "opera116", "safari18.4"]
     }
+  },
+  "declaration": {
+    "declarationRollup": true,
+    "documentation": true,
+    "documentationHeading": "## API",
+    "entryPoints": ["src/index.ts"],
+    "tsconfig": "tsconfig-build.json"
   }
 }

@@ -76,7 +76,7 @@ Snaproll uses a bang-bang digital PLL (phase-locked loop) that captures requestA
 
 ### Quantized interpolation
 
-During the Draw phase, snaproll provides an `alpha` value [0, 1) representing fractional progress toward the next update. The alpha value is quantized to a power-of-two grid based on the draw rate. The quantization grid is calculated as `2^⌈log₂(drawRate * 2)⌉`. For example, a 60 Hz draw rate uses a 128-step quantization grid. The alpha is calculated as `((alpha * grid + 0.5) | 0) / grid` clamped to `(grid-1)/grid`, which rounds to the nearest grid step. This controlled quantization improves visual consistency at the cost of temporal precision.
+During the Draw phase, snaproll provides an `alpha` value \[0, 1) representing fractional progress toward the next update. The alpha value is quantized to a power-of-two grid based on the draw rate. The quantization grid is calculated as `2^⌈log₂(drawRate * 2)⌉`. For example, a 60 Hz draw rate uses a 128-step quantization grid. The alpha is calculated as `((alpha * grid + 0.5) | 0) / grid` clamped to `(grid-1)/grid`, which rounds to the nearest grid step. This controlled quantization improves visual consistency at the cost of temporal precision.
 
 ### Configuration
 
@@ -91,101 +91,6 @@ const snaproll = new Snaproll({
 // Change rates dynamically
 snaproll.updateRate = 120 // higher precision
 snaproll.drawRate = 60 // smoother drawing
-```
-
-## API Reference
-
-### Constructor
-
-```js
-const snaproll = new Snaproll(options?)
-```
-
-**Options:**
-
-- `updateRate?: number` — Animation logic frequency (default: 60)
-- `drawRate?: number` — Rendering frequency (default: 60)
-- `context?: object` — Context object
-
-### Instance Properties
-
-```js
-snaproll.updateRate: number     // Get/set update frequency
-snaproll.drawRate: number       // Get/set draw frequency
-snaproll.state: string          // Current state: 'active' | 'idle' | 'paused'
-```
-
-### Instance Methods
-
-```js
-snaproll.subscribe(callback, options?) → SubscriptionControls
-snaproll.pause() → void
-snaproll.resume() → void
-snaproll.reset(options?) → void
-```
-
-**subscribe() options:**
-
-- `immediate?: boolean` — Start active (default: true)
-
-**reset() options:**
-
-- `updateRate?: number` — New update frequency
-- `drawRate?: number` — New draw frequency
-- `context?: object` — Context object
-- `keepSubscriptions?: boolean` — Preserve subscriptions (default: true)
-- `keepContext?: boolean` — Preserve context (default: true)
-
-### Subscription Controls
-
-```js
-const subscription = snaproll.subscribe(callback)
-
-subscription.pause() → void        // Pause this subscription
-subscription.resume() → void       // Resume this subscription
-subscription.unsubscribe() → void  // Remove this subscription
-```
-
-### Context Object
-
-The callback receives a context object with phase-specific fields:
-
-| Field        | Available during    | Purpose                      |
-| ------------ | ------------------- | ---------------------------- |
-| `action`     | Begin, Update, Draw | Current phase type           |
-| `timestamp`  | Begin               | Current frame time           |
-| `timestep`   | Update              | Time to advance per update   |
-| `updateStep` | Update              | Remaining updates this frame |
-| `alpha`      | Draw                | Interpolation factor [0, 1)  |
-
-> **Important**: The context object is phase-discriminated (different fields are valid for different phases). Only read the fields listed for the active phase. Other fields from previous phases may be present but should not be relied upon.
-
-**Begin phase:**
-
-```js
-{
-  action: SnaprollActionType.Begin,
-  timestamp: number  // Current frame time
-}
-```
-
-**Update phase:**
-
-```js
-{
-  action: SnaprollActionType.Update,
-  timestep: number,     // Time to advance per update
-  updateStep: number    // Remaining updates this frame
-}
-```
-
-**Draw phase:**
-
-```js
-{
-  action: SnaprollActionType.Draw,
-  alpha: number         // Interpolation factor [0, 1)
-}
 ```
 
 ## Animation loop structure
@@ -390,11 +295,11 @@ const unsubscribe = advisor.subscribe((response) => {
 advisor.trigger()
 ```
 
-The advisor provides quality scores [0-1] using RF (Robustness × Fit) formula and recommended draw rates sorted descending. Scores ≥0.85 indicate healthy timing with mild jitter; scores <0.60 show strong evidence of blocking/jitter or regime split and recommend re-running.
+The advisor provides quality scores \[0-1] using RF (Robustness × Fit) formula and recommended draw rates sorted descending. Scores ≥0.85 indicate healthy timing with mild jitter; scores <0.60 show strong evidence of blocking/jitter or regime split and recommend re-running.
 
 ## Examples
 
-View examples at https://escapace.github.io/snaproll/ or see the `examples/` directory:
+View examples at <https://escapace.github.io/snaproll/> or see the `examples/` directory:
 
 - **Bouncing Balls** (`canvas-2d-bouncing-balls.vue`) — Canvas animation with interpolated movement
 - **Moving Rectangles** (`css-transform-rectangles.vue`) — CSS transform animation with smooth transitions
@@ -405,6 +310,506 @@ Each example demonstrates different aspects of snaproll:
 - Smooth interpolation using alpha values
 - Performance optimization techniques
 - Multiple subscription management
+
+## API
+
+### class Snaproll [↗](https://github.com/escapace/snaproll/blob/b436a94dbea38c7c3bd8ceac0e87eaadf475e7b7/src/snaproll.ts#L459-L699 'Snaproll')
+
+Fixed-timestep animation loop with independent draw and update rates.
+
+```typescript
+export declare class Snaproll
+```
+
+#### new Snaproll
+
+Creates animation loop instance with specified configuration.
+
+```typescript
+constructor(options?: Partial<SnaprollOptions>);
+```
+
+##### Parameters
+
+| Parameter | Type                                                                                           | Description                            |
+| --------- | ---------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `options` | <pre>Partial<[SnaprollOptions](#interface-snaprolloptions- 'interface SnaprollOptions')></pre> | Options applied during initialization. |
+
+##### Remarks
+
+Uses the default [updateRate](#snaprolloptionsupdaterate) of 60 Hz, [drawRate](#snaprolloptionsdrawrate) of 60 Hz, and a new shared context object when those entries are not provided.
+
+#### Snaproll.pause
+
+Stops animation while keeping subscriptions.
+
+```typescript
+pause(): void;
+```
+
+#### Snaproll.reset
+
+Resets the animation loop with optional configuration updates.
+
+```typescript
+reset(options?: SnaprollResetOptions): void;
+```
+
+##### Parameters
+
+| Parameter | Type                                                                                                 | Description                                                               |
+| --------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `options` | <pre>[SnaprollResetOptions](#interface-snaprollresetoptions- 'interface SnaprollResetOptions')</pre> | Reset options controlling configuration overrides and retention behavior. |
+
+##### Remarks
+
+Retains the current [updateRate](#snaprolloptionsupdaterate) and [drawRate](#snaprolloptionsdrawrate) when those fields are omitted.
+
+- `keepSubscriptions` defaults to `true`, preserving existing subscriptions unless explicitly disabled.
+- `keepContext` defaults to `true`, reusing the current context. Providing [context](#interface-snaprollusercontext-) copies existing entries when `keepContext` stays `true`, or replaces the context when `keepContext` is `false`.
+
+#### Snaproll.resume
+
+Resumes animation.
+
+```typescript
+resume(): void;
+```
+
+#### Snaproll.subscribe
+
+Registers subscription callback for animation frame processing.
+
+```typescript
+subscribe(value: SnaprollSubscription, options?: {
+  immediate?: boolean;
+}): SnaprollSubscriptionControls;
+```
+
+##### Parameters
+
+| Parameter | Type                                                                                       | Description                                                                                                         |
+| --------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `value`   | <pre>[SnaprollSubscription](#type-snaprollsubscription- 'type SnaprollSubscription')</pre> | Callback function to execute during frame processing.                                                               |
+| `options` | <pre>{<br> immediate?: boolean;<br>}</pre>                                                 | Subscription configuration. The `immediate` flag defaults to `true` and activates the subscription on registration. |
+
+##### Returns
+
+[Control object](#interface-snaprollsubscriptioncontrols-) for pausing, resuming, and removing the subscription.
+
+##### Remarks
+
+Subscriptions run in insertion order. New subscriptions start immediately unless `options.immediate` is set to `false`.
+
+#### Snaproll.drawRate
+
+Getter and setter for the current draw rate in Hz.
+
+```typescript
+get drawRate(): number;
+set drawRate(value: number);
+```
+
+#### Snaproll.state
+
+Current animation loop state.
+
+Returns 'active' when running animation frames, 'idle' when no active subscriptions, or 'paused' when stopped by pause().
+
+```typescript
+get state(): "active" | "idle" | "paused";
+```
+
+#### Snaproll.updateRate
+
+Getter and setter for the current update rate in Hz.
+
+```typescript
+get updateRate(): number;
+set updateRate(value: number);
+```
+
+### class SnaprollDrawRateAdvisor [↗](https://github.com/escapace/snaproll/blob/b436a94dbea38c7c3bd8ceac0e87eaadf475e7b7/src/draw-rate-advisor.ts#L241-L311 'SnaprollDrawRateAdvisor')
+
+Provides draw rates inferred from observed frame periods.
+
+The recommendation logic is stateless and deterministic: identical period inputs produce identical outputs. Concurrent class instances do not interfere with each other.
+
+```typescript
+export declare class SnaprollDrawRateAdvisor
+```
+
+#### new SnaprollDrawRateAdvisor
+
+Creates a new draw rate advisor instance.
+
+```typescript
+constructor(options?: SnaprollDrawRateAdvisorOptions);
+```
+
+##### Parameters
+
+| Parameter | Type                                                                                                                               | Description                           |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| `options` | <pre>[SnaprollDrawRateAdvisorOptions](#interface-snaprolldrawrateadvisoroptions- 'interface SnaprollDrawRateAdvisorOptions')</pre> | Configuration options for the advisor |
+
+##### Throws
+
+Assertion error if any option values are invalid
+
+#### SnaprollDrawRateAdvisor.dispose
+
+Cancels ongoing operations and releases resources.
+
+```typescript
+dispose(): void;
+```
+
+#### SnaprollDrawRateAdvisor.subscribe
+
+Registers callback for recommendation results.
+
+Callbacks receive SnaprollDrawRateAdvisorResponse when recommendation completes successfully. Callbacks are not invoked if the operation is canceled or produces no recommendations.
+
+```typescript
+subscribe(subscription: SnaprollDrawRateAdvisorSubscription): () => void;
+```
+
+##### Parameters
+
+| Parameter      | Type                                                                                                                                    | Description                              |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| `subscription` | <pre>[SnaprollDrawRateAdvisorSubscription](#type-snaprolldrawrateadvisorsubscription- 'type SnaprollDrawRateAdvisorSubscription')</pre> | Callback function to invoke with results |
+
+##### Returns
+
+Function that unregisters the subscription when called
+
+#### SnaprollDrawRateAdvisor.trigger
+
+Cancels any previous ongoing operation before starting a new one. Results are delivered to registered subscriptions when the operation completes. If the operation is canceled or produces no recommendations, subscriptions are not invoked.
+
+```typescript
+trigger(): void;
+```
+
+### enum SnaprollActionType [↗](https://github.com/escapace/snaproll/blob/b436a94dbea38c7c3bd8ceac0e87eaadf475e7b7/src/snaproll.ts#L7-L11 'SnaprollActionType')
+
+Animation frame phases.
+
+```typescript
+export declare enum SnaprollActionType
+```
+
+#### Members
+
+| Member   | Value        |
+| -------- | ------------ |
+| `Begin`  | <pre>0</pre> |
+| `Update` | <pre>1</pre> |
+| `Draw`   | <pre>2</pre> |
+
+### interface SnaprollActionBegin [↗](https://github.com/escapace/snaproll/blob/b436a94dbea38c7c3bd8ceac0e87eaadf475e7b7/src/snaproll.ts#L16-L20 'SnaprollActionBegin')
+
+Frame initialization action.
+
+```typescript
+export interface SnaprollActionBegin
+```
+
+#### SnaprollActionBegin.timestamp
+
+Current frame time
+
+```typescript
+timestamp: number
+```
+
+### interface SnaprollActionDraw [↗](https://github.com/escapace/snaproll/blob/b436a94dbea38c7c3bd8ceac0e87eaadf475e7b7/src/snaproll.ts#L37-L41 'SnaprollActionDraw')
+
+Interpolated drawing action.
+
+```typescript
+export interface SnaprollActionDraw extends Omit<SnaprollActionUpdate, 'action'>
+```
+
+#### SnaprollActionDraw\.alpha
+
+Interpolation factor \[0, 1)
+
+```typescript
+alpha: number
+```
+
+### interface SnaprollActionUpdate [↗](https://github.com/escapace/snaproll/blob/b436a94dbea38c7c3bd8ceac0e87eaadf475e7b7/src/snaproll.ts#L26-L32 'SnaprollActionUpdate')
+
+Fixed timestep animation logic action. The updateStep counts down remaining updates in the current frame.
+
+```typescript
+export interface SnaprollActionUpdate extends Omit<SnaprollActionBegin, 'action'>
+```
+
+#### SnaprollActionUpdate.timestep
+
+Time to advance per update
+
+```typescript
+timestep: number
+```
+
+#### SnaprollActionUpdate.updateStep
+
+Remaining updates this frame, counts down to 1
+
+```typescript
+updateStep: number
+```
+
+### interface SnaprollDrawRateAdvisorOptions [↗](https://github.com/escapace/snaproll/blob/b436a94dbea38c7c3bd8ceac0e87eaadf475e7b7/src/draw-rate-advisor.ts#L165-L196 'SnaprollDrawRateAdvisorOptions')
+
+#### SnaprollDrawRateAdvisorOptions.canonicalBases
+
+Array of canonical refresh rates to consider for snapping. Must be non-empty array of positive integers.
+
+```typescript
+canonicalBases?: readonly number[];
+```
+
+#### SnaprollDrawRateAdvisorOptions.maxDivisor
+
+Maximum count of divisors to consider for candidate generation and output. Must be positive integer ≥ 1.
+
+```typescript
+maxDivisor?: number;
+```
+
+#### SnaprollDrawRateAdvisorOptions.minDraw
+
+Minimum draw rate to include in results. Must be positive integer ≥ 5.
+
+```typescript
+minDraw?: number;
+```
+
+#### SnaprollDrawRateAdvisorOptions.samples
+
+Number of frame intervals to collect after warmup. Must be positive integer ≥ 30.
+
+```typescript
+samples?: number;
+```
+
+#### SnaprollDrawRateAdvisorOptions.warmup
+
+Number of frames to ignore before sampling. Must be non-negative integer ≥ 0.
+
+```typescript
+warmup?: number;
+```
+
+### interface SnaprollDrawRateAdvisorResponse [↗](https://github.com/escapace/snaproll/blob/b436a94dbea38c7c3bd8ceac0e87eaadf475e7b7/src/draw-rate-advisor.ts#L130-L154 'SnaprollDrawRateAdvisorResponse')
+
+#### SnaprollDrawRateAdvisorResponse.score
+
+Quality score in range \[0,1] using RF (Robustness × Fit) formula. Higher scores indicate better data consistency and more reliable recommendations.
+
+Score interpretation:
+
+- `0.95–1.00`: Rock-solid. Extremely stable capture, fits a canonical/divisor cleanly
+- `0.85–0.95`: Healthy. Mild jitter only; values are trustworthy
+- `0.75–0.85`: Borderline steady. Noticeable instability or light regime mixing; fine for most uses, re-run if chasing perfection
+- `0.60–0.75`: Shaky. Significant jitter or likely mid-phase change; consider re-running
+- `< 0.60` : Unstable. Strong evidence of blocking/jitter or regime split; re-run recommended
+
+```typescript
+score: number
+```
+
+#### SnaprollDrawRateAdvisorResponse.values
+
+Array of recommended draw rates (Hz), sorted descending and de-duplicated. All values are integers and ≥ minDraw.
+
+```typescript
+values: number[];
+```
+
+### interface SnaprollOptions [↗](https://github.com/escapace/snaproll/blob/b436a94dbea38c7c3bd8ceac0e87eaadf475e7b7/src/snaproll.ts#L94-L110 'SnaprollOptions')
+
+Configuration interface for animation loop.
+
+```typescript
+export interface SnaprollOptions
+```
+
+#### Remarks
+
+drawRate and updateRate operate independently, allowing different frequencies for draw and update rates.
+
+#### SnaprollOptions.context
+
+Optional shared state object passed to all subscription callbacks.
+
+```typescript
+context?: SnaprollUserContext;
+```
+
+#### SnaprollOptions.drawRate
+
+Draw rate in Hz, controls visual frame timing.
+
+```typescript
+drawRate: number
+```
+
+#### SnaprollOptions.updateRate
+
+Update rate in Hz, determines fixed timestep size.
+
+```typescript
+updateRate: number
+```
+
+### interface SnaprollResetOptions [↗](https://github.com/escapace/snaproll/blob/b436a94dbea38c7c3bd8ceac0e87eaadf475e7b7/src/snaproll.ts#L118-L145 'SnaprollResetOptions')
+
+Options accepted by [Snaproll.reset](#snaprollreset).
+
+```typescript
+export interface SnaprollResetOptions extends Partial<SnaprollOptions>
+```
+
+#### Remarks
+
+Extends [SnaprollOptions](#interface-snaprolloptions-) and controls how subscriptions and context objects are preserved.
+
+#### SnaprollResetOptions.context
+
+Determines the [context](#interface-snaprollusercontext-) to use after reset completes.
+
+```typescript
+context?: SnaprollUserContext;
+```
+
+##### Remarks
+
+The context resolution follows these rules:
+
+- If `keepContext=true` and `context` is provided: applies the provided object and copies existing context into it.
+- If `keepContext=false` and `context` is provided: uses the provided object as-is.
+- If `keepContext=true` and `context` is omitted: reuses the existing context object.
+- If `keepContext=false` and `context` is omitted: creates a new empty context object.
+
+#### SnaprollResetOptions.keepContext
+
+Preserve the existing context object during reset.
+
+```typescript
+keepContext?: boolean;
+```
+
+#### SnaprollResetOptions.keepSubscriptions
+
+Preserve existing subscription callbacks during reset.
+
+```typescript
+keepSubscriptions?: boolean;
+```
+
+### interface SnaprollSubscriptionControls [↗](https://github.com/escapace/snaproll/blob/b436a94dbea38c7c3bd8ceac0e87eaadf475e7b7/src/snaproll.ts#L62-L69 'SnaprollSubscriptionControls')
+
+Control interface for managing individual animation subscriptions.
+
+```typescript
+export interface SnaprollSubscriptionControls
+```
+
+#### Remarks
+
+Each subscription operates independently. Pausing one subscription does not affect others. The animation loop continues running as long as any subscription remains active.
+
+#### SnaprollSubscriptionControls.pause
+
+Pauses this subscription
+
+```typescript
+pause: () => void;
+```
+
+#### SnaprollSubscriptionControls.resume
+
+Resumes this subscription
+
+```typescript
+resume: () => void;
+```
+
+#### SnaprollSubscriptionControls.unsubscribe
+
+Removes this subscription
+
+```typescript
+unsubscribe: () => void;
+```
+
+### interface SnaprollUserContext [↗](https://github.com/escapace/snaproll/blob/b436a94dbea38c7c3bd8ceac0e87eaadf475e7b7/src/index.ts#L19 'SnaprollUserContext')
+
+Extension point for application-specific state that the animation loop shares across frames.
+
+```typescript
+export interface SnaprollUserContext
+```
+
+#### Remarks
+
+Augment this interface via declaration merging so custom properties flow into [SnaprollContext](#type-snaprollcontext-). Snaproll maintains a single context instance per controller; store long-lived data on user fields and rely on [action-specific](#enum-snaprollactiontype-) payloads for phase details.
+
+#### Examples
+
+```ts
+declare module 'snaproll' {
+  interface SnaprollUserContext {
+    score: number
+  }
+}
+```
+
+### type SnaprollContext [↗](https://github.com/escapace/snaproll/blob/b436a94dbea38c7c3bd8ceac0e87eaadf475e7b7/src/snaproll.ts#L52-L53 'SnaprollContext')
+
+Context object passed to subscription callbacks during animation frames.
+
+```typescript
+export type SnaprollContext = (SnaprollActionBegin | SnaprollActionDraw | SnaprollActionUpdate) &
+  SnaprollUserContext
+```
+
+#### Remarks
+
+Intersects the action-specific payload with [SnaprollUserContext](#interface-snaprollusercontext-), so that custom state persists across [loop phases](#enum-snaprollactiontype-). Inspect the `action` discriminant to determine which `SnaprollAction*` view is valid while treating application-specific fields as shared state.
+
+### type SnaprollDrawRateAdvisorSubscription [↗](https://github.com/escapace/snaproll/blob/b436a94dbea38c7c3bd8ceac0e87eaadf475e7b7/src/draw-rate-advisor.ts#L161-L163 'SnaprollDrawRateAdvisorSubscription')
+
+Callback function invoked when draw rate estimation completes.
+
+```typescript
+export type SnaprollDrawRateAdvisorSubscription = (
+  response: SnaprollDrawRateAdvisorResponse,
+) => void
+```
+
+### type SnaprollSubscription [↗](https://github.com/escapace/snaproll/blob/b436a94dbea38c7c3bd8ceac0e87eaadf475e7b7/src/snaproll.ts#L83 'SnaprollSubscription')
+
+Subscription callback function.
+
+```typescript
+export type SnaprollSubscription = (context: SnaprollContext) => boolean | undefined
+```
+
+#### Remarks
+
+Return value controls frame execution flow:
+
+- `true` from Begin phase skips the entire frame
+- `true` from Update phase skips remaining updates and draw for current frame
+- `undefined` or `false` continues normal execution
 
 ## Acknowledgments
 

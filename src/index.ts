@@ -1,9 +1,10 @@
 /**
- * Context interface for application-specific state.
+ * Extension point for application-specific state that the animation loop shares across frames.
  *
  * @remarks
- * Uses TypeScript declaration merging to allow augmentation with custom properties.
- * Extended properties become available in all subscription callbacks.
+ * Augment this interface via declaration merging so custom properties flow into {@link SnaprollContext}.
+ * Snaproll maintains a single context instance per controller; store long-lived data on user fields
+ * and rely on {@link SnaprollActionType | action-specific} payloads for phase details.
  *
  * @example
  * ```ts
@@ -25,6 +26,7 @@ export {
   type SnaprollActionUpdate,
   type SnaprollContext,
   type SnaprollOptions,
+  type SnaprollResetOptions,
   type SnaprollSubscription,
   type SnaprollSubscriptionControls,
 } from './snaproll'

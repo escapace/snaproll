@@ -44,8 +44,10 @@ export interface SnaprollActionDraw extends Omit<SnaprollActionUpdate, 'action'>
  * Context object passed to subscription callbacks during animation frames.
  *
  * @remarks
- * Discriminated union that combines action-specific interfaces with user context.
- * Available properties depend on the current action type: Begin, Update, or Draw.
+ * Intersects the action-specific payload with {@link SnaprollUserContext}, so that custom state
+ * persists across {@link SnaprollActionType | loop phases}. Inspect the `action` discriminant to
+ * determine which `SnaprollAction*` view is valid while treating application-specific fields as shared
+ * state.
  */
 export type SnaprollContext = (SnaprollActionBegin | SnaprollActionDraw | SnaprollActionUpdate) &
   SnaprollUserContext
@@ -71,8 +73,11 @@ export interface SnaprollSubscriptionControls {
  *
  * @remarks
  * Return value controls frame execution flow:
+ *
  * - `true` from Begin phase skips the entire frame
+ *
  * - `true` from Update phase skips remaining updates and draw for current frame
+ *
  * - `undefined` or `false` continues normal execution
  */
 export type SnaprollSubscription = (context: SnaprollContext) => boolean | undefined
@@ -81,15 +86,61 @@ export type SnaprollSubscription = (context: SnaprollContext) => boolean | undef
  * Configuration interface for animation loop.
  *
  * @remarks
+ *
  * drawRate and updateRate operate independently, allowing different frequencies
  * for draw and update rates.
+ *
  */
 export interface SnaprollOptions {
-  /** Draw rate in Hz, controls visual frame timing */
+  /**
+   * Draw rate in Hz, controls visual frame timing.
+   * @defaultvalue 60
+   */
   drawRate: number
-  /** Update rate in Hz, determines fixed timestep size */
+  /**
+   * Update rate in Hz, determines fixed timestep size.
+   * @defaultvalue 60
+   */
   updateRate: number
-  /** Optional shared state object passed to all subscription callbacks */
+  /**
+   * Optional shared state object passed to all subscription callbacks.
+   * @defaultvalue A new object created for the instance.
+   */
+  context?: SnaprollUserContext
+}
+
+/**
+ * Options accepted by {@link Snaproll.reset}.
+ *
+ * @remarks
+ * Extends {@link SnaprollOptions} and controls how subscriptions and context objects are preserved.
+ */
+export interface SnaprollResetOptions extends Partial<SnaprollOptions> {
+  /**
+   * Preserve existing subscription callbacks during reset.
+   * @defaultvalue true
+   */
+  keepSubscriptions?: boolean
+  /**
+   * Preserve the existing context object during reset.
+   * @defaultvalue true
+   */
+  keepContext?: boolean
+  /**
+   * Determines the {@link SnaprollUserContext | context} to use after reset completes.
+   *
+   * @remarks
+   * The context resolution follows these rules:
+   *
+   * - If `keepContext=true` and `context` is provided: applies the provided object and copies existing context into it.
+   *
+   * - If `keepContext=false` and `context` is provided: uses the provided object as-is.
+   *
+   * - If `keepContext=true` and `context` is omitted: reuses the existing context object.
+   *
+   * - If `keepContext=false` and `context` is omitted: creates a new empty context object.
+   *
+   */
   context?: SnaprollUserContext
 }
 
@@ -116,9 +167,13 @@ const DEFAULT_DRAW_RATE = 60
  * and do nothing. We only jump a frame when the error is bigger than ~0.5 + EPS frames.
  *
  * EPS options:
+ *
  * - Number.EPSILON / 2 — tie-break only. No real buffer; great if timing is rock-solid.
+ *
  * - 1e-3 — small buffer (~0.001 frames ≈ 16.7 µs at 60 Hz). Calms tiny jitter with no visible lag.
+ *
  * - 3e-3 — balanced: ~0.003 frames ≈ 50 µs at 60 Hz. Steadier without feeling sluggish.
+ *
  * - 1e-2 — stronger buffer (~0.01 frames ≈ 0.167 ms at 60 Hz). Best for noisy threads; slightly less snappy.
  *
  * Notes:
@@ -438,6 +493,10 @@ export class Snaproll {
 
   /**
    * Creates animation loop instance with specified configuration.
+   *
+   * @param options - Options applied during initialization.
+   * @remarks
+   * Uses the default {@link SnaprollOptions.updateRate | updateRate} of 60 Hz, {@link SnaprollOptions.drawRate | drawRate} of 60 Hz, and a new shared context object when those entries are not provided.
    */
   constructor(options: Partial<SnaprollOptions> = {}) {
     this.store = createStore(options)
@@ -473,10 +532,19 @@ export class Snaproll {
 
   /**
    * Resets the animation loop with optional configuration updates.
+   *
+   * @param options - Reset options controlling configuration overrides and retention behavior.
+   *
+   * @remarks
+   *
+   * Retains the current {@link SnaprollOptions.updateRate | updateRate} and {@link SnaprollOptions.drawRate | drawRate} when those fields are omitted.
+   *
+   * - `keepSubscriptions` defaults to `true`, preserving existing subscriptions unless explicitly disabled.
+   *
+   * - `keepContext` defaults to `true`, reusing the current context. Providing {@link SnaprollUserContext | context} copies existing entries when `keepContext` stays `true`, or replaces the context when `keepContext` is `false`.
+   *
    */
-  public reset(
-    options: { keepContext?: boolean; keepSubscriptions?: boolean } & Partial<SnaprollOptions> = {},
-  ) {
+  public reset(options: SnaprollResetOptions = {}) {
     const previousStore = this.store
     const keepSubscriptions = options?.keepSubscriptions !== false
     const keepContext = options?.keepContext !== false
@@ -488,18 +556,6 @@ export class Snaproll {
 
     // preserve the options
     this.store = createStore({
-      drawRate: options.drawRate ?? previousStore.drawRate,
-      updateRate: options.updateRate ?? previousStore.updateRate,
-      /**
-       * Determines the context to use
-       *
-       * @remarks
-       * The context resolution follows these rules:
-       * - If keepContext=true and hasContext=true: Uses provided context object, assigns existing store context to provided context object
-       * - If keepContext=false and hasContext=true: Uses the provided context object
-       * - If keepContext=true and hasContext=false: Uses the existing context object
-       * - If keepContext=false and hasContext=false: Uses a new empty context object
-       */
       context:
         keepContext && hasContext
           ? Object.assign(options.context!, this.store.context)
@@ -508,9 +564,11 @@ export class Snaproll {
             : keepContext
               ? this.store.context
               : undefined,
+      drawRate: options.drawRate ?? previousStore.drawRate,
       subscriptions: keepSubscriptions
         ? Array.from(previousStore.subscriptionStateMap.entries())
         : undefined,
+      updateRate: options.updateRate ?? previousStore.updateRate,
     })
 
     if (previousState !== TypeState.Paused) {
@@ -544,9 +602,13 @@ export class Snaproll {
   /**
    * Registers subscription callback for animation frame processing.
    *
-   * @param value - Callback function to execute during frame processing
-   * @param options - Subscription configuration with immediate activation flag
-   * @returns Control object for pausing, resuming, and removing subscription
+   * @param value - Callback function to execute during frame processing.
+   * @param options - Subscription configuration. The `immediate` flag defaults to `true` and activates the subscription on registration.
+   * @returns {@link SnaprollSubscriptionControls | Control object} for pausing, resuming, and removing the subscription.
+   *
+   * @remarks
+   *
+   * Subscriptions run in insertion order. New subscriptions start immediately unless `options.immediate` is set to `false`.
    */
   public subscribe(
     value: SnaprollSubscription,
@@ -612,15 +674,11 @@ export class Snaproll {
   }
 
   /**
-   * Gets current update rate in Hz.
+   * Getter and setter for the current update rate in Hz.
    */
   public get updateRate() {
     return this.store.updateRate
   }
-
-  /**
-   * Sets update rate in Hz.
-   */
   public set updateRate(value: number) {
     assertIsUpdateRate(value)
 
@@ -628,15 +686,11 @@ export class Snaproll {
   }
 
   /**
-   * Gets current draw rate in Hz.
+   * Getter and setter for the current draw rate in Hz.
    */
   public get drawRate() {
     return this.store.drawRate
   }
-
-  /**
-   * Sets draw rate in Hz.
-   */
   public set drawRate(value: number) {
     assertIsDrawRate(value)
 
