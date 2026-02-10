@@ -22,7 +22,7 @@
     "esroll": "1.1.1",
     "jsdom": "26.1.0",
     "knip": "5.64.0",
-    "lefthook": "1.13.4",
+    "lefthook": "2.1.0",
     "prettier": "3.6.2",
     "prettier-config-escapace": "1.2.1",
     "syncpack": "13.0.4",
