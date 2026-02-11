@@ -313,7 +313,7 @@ Each example demonstrates different aspects of snaproll:
 
 ## API
 
-### class Snaproll [↗](https://github.com/escapace/snaproll/blob/5969894c4230eb5f1505be14840b80655ca1a52b/src/snaproll.ts#L459-L699 'Snaproll')
+### class Snaproll [↗](src/snaproll.ts#L459-L699 'Snaproll')
 
 Fixed-timestep animation loop with independent draw and update rates.
 
@@ -429,7 +429,7 @@ get updateRate(): number;
 set updateRate(value: number);
 ```
 
-### class SnaprollDrawRateAdvisor [↗](https://github.com/escapace/snaproll/blob/5969894c4230eb5f1505be14840b80655ca1a52b/src/draw-rate-advisor.ts#L241-L311 'SnaprollDrawRateAdvisor')
+### class SnaprollDrawRateAdvisor [↗](src/draw-rate-advisor.ts#L241-L311 'SnaprollDrawRateAdvisor')
 
 Provides draw rates inferred from observed frame periods.
 
@@ -493,7 +493,7 @@ Cancels any previous ongoing operation before starting a new one. Results are de
 trigger(): void;
 ```
 
-### enum SnaprollActionType [↗](https://github.com/escapace/snaproll/blob/5969894c4230eb5f1505be14840b80655ca1a52b/src/snaproll.ts#L7-L11 'SnaprollActionType')
+### enum SnaprollActionType [↗](src/snaproll.ts#L7-L11 'SnaprollActionType')
 
 Animation frame phases.
 
@@ -509,7 +509,7 @@ export declare enum SnaprollActionType
 | `Update` | <pre>1</pre> |
 | `Draw`   | <pre>2</pre> |
 
-### interface SnaprollActionBegin [↗](https://github.com/escapace/snaproll/blob/5969894c4230eb5f1505be14840b80655ca1a52b/src/snaproll.ts#L16-L20 'SnaprollActionBegin')
+### interface SnaprollActionBegin [↗](src/snaproll.ts#L16-L20 'SnaprollActionBegin')
 
 Frame initialization action.
 
@@ -525,7 +525,7 @@ Current frame time
 timestamp: number
 ```
 
-### interface SnaprollActionDraw [↗](https://github.com/escapace/snaproll/blob/5969894c4230eb5f1505be14840b80655ca1a52b/src/snaproll.ts#L37-L41 'SnaprollActionDraw')
+### interface SnaprollActionDraw [↗](src/snaproll.ts#L37-L41 'SnaprollActionDraw')
 
 Interpolated drawing action.
 
@@ -541,7 +541,7 @@ Interpolation factor \[0, 1)
 alpha: number
 ```
 
-### interface SnaprollActionUpdate [↗](https://github.com/escapace/snaproll/blob/5969894c4230eb5f1505be14840b80655ca1a52b/src/snaproll.ts#L26-L32 'SnaprollActionUpdate')
+### interface SnaprollActionUpdate [↗](src/snaproll.ts#L26-L32 'SnaprollActionUpdate')
 
 Fixed timestep animation logic action. The updateStep counts down remaining updates in the current frame.
 
@@ -565,7 +565,7 @@ Remaining updates this frame, counts down to 1
 updateStep: number
 ```
 
-### interface SnaprollDrawRateAdvisorOptions [↗](https://github.com/escapace/snaproll/blob/5969894c4230eb5f1505be14840b80655ca1a52b/src/draw-rate-advisor.ts#L165-L196 'SnaprollDrawRateAdvisorOptions')
+### interface SnaprollDrawRateAdvisorOptions [↗](src/draw-rate-advisor.ts#L165-L196 'SnaprollDrawRateAdvisorOptions')
 
 #### SnaprollDrawRateAdvisorOptions.canonicalBases
 
@@ -607,7 +607,7 @@ Number of frames to ignore before sampling. Must be non-negative integer ≥ 0.
 warmup?: number;
 ```
 
-### interface SnaprollDrawRateAdvisorResponse [↗](https://github.com/escapace/snaproll/blob/5969894c4230eb5f1505be14840b80655ca1a52b/src/draw-rate-advisor.ts#L130-L154 'SnaprollDrawRateAdvisorResponse')
+### interface SnaprollDrawRateAdvisorResponse [↗](src/draw-rate-advisor.ts#L130-L154 'SnaprollDrawRateAdvisorResponse')
 
 #### SnaprollDrawRateAdvisorResponse.score
 
@@ -633,7 +633,7 @@ Array of recommended draw rates (Hz), sorted descending and de-duplicated. All v
 values: number[];
 ```
 
-### interface SnaprollOptions [↗](https://github.com/escapace/snaproll/blob/5969894c4230eb5f1505be14840b80655ca1a52b/src/snaproll.ts#L94-L110 'SnaprollOptions')
+### interface SnaprollOptions [↗](src/snaproll.ts#L94-L110 'SnaprollOptions')
 
 Configuration interface for animation loop.
 
@@ -669,7 +669,7 @@ Update rate in Hz, determines fixed timestep size.
 updateRate: number
 ```
 
-### interface SnaprollResetOptions [↗](https://github.com/escapace/snaproll/blob/5969894c4230eb5f1505be14840b80655ca1a52b/src/snaproll.ts#L118-L145 'SnaprollResetOptions')
+### interface SnaprollResetOptions [↗](src/snaproll.ts#L118-L145 'SnaprollResetOptions')
 
 Options accepted by [Snaproll.reset](#snaprollreset).
 
@@ -714,7 +714,7 @@ Preserve existing subscription callbacks during reset.
 keepSubscriptions?: boolean;
 ```
 
-### interface SnaprollSubscriptionControls [↗](https://github.com/escapace/snaproll/blob/5969894c4230eb5f1505be14840b80655ca1a52b/src/snaproll.ts#L62-L69 'SnaprollSubscriptionControls')
+### interface SnaprollSubscriptionControls [↗](src/snaproll.ts#L62-L69 'SnaprollSubscriptionControls')
 
 Control interface for managing individual animation subscriptions.
 
@@ -750,7 +750,7 @@ Removes this subscription
 unsubscribe: () => void;
 ```
 
-### interface SnaprollUserContext [↗](https://github.com/escapace/snaproll/blob/5969894c4230eb5f1505be14840b80655ca1a52b/src/index.ts#L19 'SnaprollUserContext')
+### interface SnaprollUserContext [↗](src/index.ts#L19 'SnaprollUserContext')
 
 Extension point for application-specific state that the animation loop shares across frames.
 
@@ -772,7 +772,7 @@ declare module 'snaproll' {
 }
 ```
 
-### type SnaprollContext [↗](https://github.com/escapace/snaproll/blob/5969894c4230eb5f1505be14840b80655ca1a52b/src/snaproll.ts#L52-L53 'SnaprollContext')
+### type SnaprollContext [↗](src/snaproll.ts#L52-L53 'SnaprollContext')
 
 Context object passed to subscription callbacks during animation frames.
 
@@ -785,7 +785,7 @@ export type SnaprollContext = (SnaprollActionBegin | SnaprollActionDraw | Snapro
 
 Intersects the action-specific payload with [SnaprollUserContext](#interface-snaprollusercontext-), so that custom state persists across [loop phases](#enum-snaprollactiontype-). Inspect the `action` discriminant to determine which `SnaprollAction*` view is valid while treating application-specific fields as shared state.
 
-### type SnaprollDrawRateAdvisorSubscription [↗](https://github.com/escapace/snaproll/blob/5969894c4230eb5f1505be14840b80655ca1a52b/src/draw-rate-advisor.ts#L161-L163 'SnaprollDrawRateAdvisorSubscription')
+### type SnaprollDrawRateAdvisorSubscription [↗](src/draw-rate-advisor.ts#L161-L163 'SnaprollDrawRateAdvisorSubscription')
 
 Callback function invoked when draw rate estimation completes.
 
@@ -795,7 +795,7 @@ export type SnaprollDrawRateAdvisorSubscription = (
 ) => void
 ```
 
-### type SnaprollSubscription [↗](https://github.com/escapace/snaproll/blob/5969894c4230eb5f1505be14840b80655ca1a52b/src/snaproll.ts#L83 'SnaprollSubscription')
+### type SnaprollSubscription [↗](src/snaproll.ts#L83 'SnaprollSubscription')
 
 Subscription callback function.
 
