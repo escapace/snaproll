@@ -16,12 +16,22 @@ const COUNT_VALUES = {
   RAPID_ADVANCE: 100,
 } as const
 
-function createMockCallbacks(count: number): Array<ReturnType<typeof vi.fn>> {
-  return Array.from({ length: count }, () => vi.fn())
+type AnimationFrameCallback = (time: number) => void
+
+function createAnimationFrameCallback(
+  implementation?: AnimationFrameCallback,
+): ReturnType<typeof vi.fn<AnimationFrameCallback>> {
+  return vi.fn<AnimationFrameCallback>(implementation)
+}
+
+type AnimationFrameCallbackMock = ReturnType<typeof createAnimationFrameCallback>
+
+function createMockCallbacks(count: number): AnimationFrameCallbackMock[] {
+  return Array.from({ length: count }, () => createAnimationFrameCallback())
 }
 
 function expectCallbacksCalledWith(
-  callbacks: Array<ReturnType<typeof vi.fn>>,
+  callbacks: AnimationFrameCallbackMock[],
   timestamp: number,
 ): void {
   callbacks.forEach((callback) => {
@@ -31,7 +41,7 @@ function expectCallbacksCalledWith(
 
 function executeCallbackInTimeEnvironment(
   timeController: MockTimeController,
-  callback: ReturnType<typeof vi.fn>,
+  callback: AnimationFrameCallbackMock,
   advanceTime: number = TIME_VALUES.CALLBACK_ADVANCE,
 ): void {
   globalThis.requestAnimationFrame(callback)
@@ -42,7 +52,7 @@ function createAndExecuteMultipleCallbacks(
   timeController: MockTimeController,
   callbackCount: number = COUNT_VALUES.MULTIPLE_CALLBACKS,
   advanceTime: number = TIME_VALUES.CALLBACK_ADVANCE,
-): Array<ReturnType<typeof vi.fn>> {
+): AnimationFrameCallbackMock[] {
   const callbacks = createMockCallbacks(callbackCount)
   callbacks.forEach((callback) => globalThis.requestAnimationFrame(callback))
   timeController.advance(advanceTime)
@@ -88,7 +98,7 @@ describe('MockTimeController', () => {
 
   describe('requestAnimationFrame Mocking', () => {
     it('schedules callbacks correctly', () => {
-      const callback = vi.fn()
+      const callback = createAnimationFrameCallback()
 
       const id = globalThis.requestAnimationFrame(callback)
       expect(id).toBeGreaterThan(0)
@@ -100,7 +110,7 @@ describe('MockTimeController', () => {
     })
 
     it('executes callbacks when time advances', () => {
-      const callback = vi.fn()
+      const callback = createAnimationFrameCallback()
 
       globalThis.requestAnimationFrame(callback)
       expect(callback).not.toHaveBeenCalled()
@@ -120,8 +130,8 @@ describe('MockTimeController', () => {
     })
 
     it('handles callback scheduling from within callbacks', () => {
-      const callback1 = vi.fn()
-      const callback2 = vi.fn()
+      const callback1 = createAnimationFrameCallback()
+      const callback2 = createAnimationFrameCallback()
 
       callback1.mockImplementation(() => {
         globalThis.requestAnimationFrame(callback2)
@@ -139,7 +149,7 @@ describe('MockTimeController', () => {
     })
 
     it('cancels callbacks correctly', () => {
-      const callback = vi.fn()
+      const callback = createAnimationFrameCallback()
 
       const id = globalThis.requestAnimationFrame(callback)
       globalThis.cancelAnimationFrame(id)
@@ -150,10 +160,10 @@ describe('MockTimeController', () => {
     })
 
     it('handles callback errors gracefully', () => {
-      const errorCallback = vi.fn(() => {
+      const errorCallback = createAnimationFrameCallback(() => {
         throw new Error('Test error')
       })
-      const normalCallback = vi.fn()
+      const normalCallback = createAnimationFrameCallback()
 
       globalThis.requestAnimationFrame(errorCallback)
       globalThis.requestAnimationFrame(normalCallback)
@@ -166,7 +176,7 @@ describe('MockTimeController', () => {
 
   describe('Edge Cases', () => {
     it('handles zero time advance correctly', () => {
-      const callback = vi.fn()
+      const callback = createAnimationFrameCallback()
       globalThis.requestAnimationFrame(callback)
 
       timeController.advance(0)
@@ -174,7 +184,7 @@ describe('MockTimeController', () => {
     })
 
     it('handles large time advances correctly', () => {
-      const callback = vi.fn()
+      const callback = createAnimationFrameCallback()
       globalThis.requestAnimationFrame(callback)
 
       timeController.advance(TIME_VALUES.LARGE_ADVANCE)
@@ -183,7 +193,7 @@ describe('MockTimeController', () => {
     })
 
     it('handles rapid successive advances correctly', () => {
-      const callback = vi.fn()
+      const callback = createAnimationFrameCallback()
 
       for (let index = 0; index < COUNT_VALUES.RAPID_ADVANCE; index++) {
         globalThis.requestAnimationFrame(callback)
@@ -197,9 +207,9 @@ describe('MockTimeController', () => {
     it('maintains callback execution order with different scheduled times', () => {
       const executionOrder: number[] = []
 
-      const callback1 = vi.fn(() => executionOrder.push(1))
-      const callback2 = vi.fn(() => executionOrder.push(2))
-      const callback3 = vi.fn(() => executionOrder.push(3))
+      const callback1 = createAnimationFrameCallback(() => executionOrder.push(1))
+      const callback2 = createAnimationFrameCallback(() => executionOrder.push(2))
+      const callback3 = createAnimationFrameCallback(() => executionOrder.push(3))
 
       globalThis.requestAnimationFrame(callback1)
       timeController.advance(0.05)
