@@ -62,6 +62,7 @@
   "repository": "escapace/snaproll",
   "scripts": {
     "build": "tsx scripts/build.ts",
+    "build:github-pages": "vite build",
     "format": "syncpack format && eslint --no-warn-ignored --fix && prettier --no-error-on-unmatched-pattern -uw .",
     "lint": "ls-lint --config .ls-lint.yaml && knip --no-config-hints && eslint",
     "ls-lint": "ls-lint --config .ls-lint.yaml",
