@@ -17,7 +17,7 @@
     "@vitest/coverage-v8": "4.0.18",
     "@vueuse/core": "14.2.0",
     "es-toolkit": "1.44.0",
-    "eslint": "9.39.2",
+    "eslint": "10.0.0",
     "eslint-config-escapace": "5.10.2",
     "esroll": "1.1.1",
     "jsdom": "28.0.0",
