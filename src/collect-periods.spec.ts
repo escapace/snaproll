@@ -133,7 +133,7 @@ describe('collectPeriods', () => {
     expect(result.value[0]).toBeCloseTo(period, 3)
   })
 
-  it('handles minimum sample count', async () => {
+  it('handles zero sample count', async () => {
     const samples = 0
     const warmup = 0
     const period = 16.67

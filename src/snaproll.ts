@@ -1,3 +1,4 @@
+/* eslint-disable math/prefer-math-trunc */
 import type { SnaprollUserContext } from './index'
 import { assert } from './utilities/assert'
 import { isPositiveNumberOrUndefined } from './utilities/is-positive-number-or-undefined'

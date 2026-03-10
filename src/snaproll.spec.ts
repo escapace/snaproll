@@ -231,7 +231,7 @@ function testMonotonicityWithUpdateTracking(
  * @param errorMessage - Expected error message
  */
 function expectInvalidValueError(createInstance: () => void, errorMessage: string): void {
-  expect(createInstance).toThrow(errorMessage)
+  expect(createInstance).toThrowError(errorMessage)
 }
 
 /**
@@ -575,10 +575,10 @@ describe('Animation Loop Integration Tests', () => {
       expect(drawActionIndex).toBeGreaterThanOrEqual(0)
       expect(drawActionIndex).toBeGreaterThan(beginActionIndex)
 
-      if (updateActionIndex >= 0) {
-        expect(updateActionIndex).toBeGreaterThan(beginActionIndex)
-        expect(drawActionIndex).toBeGreaterThan(updateActionIndex)
-      }
+      const updateOrderingIsValid =
+        updateActionIndex < 0 ||
+        (updateActionIndex > beginActionIndex && drawActionIndex > updateActionIndex)
+      expect(updateOrderingIsValid).toBe(true)
 
       loop.pause()
     })
@@ -606,21 +606,18 @@ describe('Animation Loop Integration Tests', () => {
       )
 
       expect(beginAction).toBeDefined()
-      if (beginAction !== undefined) {
-        expect(beginAction.timestamp).toBeGreaterThan(0)
-      }
+      expect(beginAction?.timestamp ?? 0).toBeGreaterThan(0)
 
-      if (updateAction !== undefined) {
-        expect(updateAction.timestamp).toBeDefined()
-        expect(updateAction.timestep).toBe(1000 / CONFIG_PRESETS.DEFAULT.updateRate)
-      }
+      const updateTimingIsValid =
+        updateAction === undefined ||
+        (updateAction.timestamp !== undefined &&
+          updateAction.timestep === 1000 / CONFIG_PRESETS.DEFAULT.updateRate)
+      expect(updateTimingIsValid).toBe(true)
 
       expect(drawAction).toBeDefined()
-      if (drawAction !== undefined) {
-        expect(drawAction.timestamp).toBeDefined()
-        expect(drawAction.timestep).toBeDefined()
-        expect(drawAction.alpha).toBeGreaterThanOrEqual(0)
-      }
+      expect(drawAction?.timestamp).toBeDefined()
+      expect(drawAction?.timestep).toBeDefined()
+      expect(drawAction?.alpha ?? -1).toBeGreaterThanOrEqual(0)
 
       snaprollInstance.pause()
     })
@@ -814,7 +811,7 @@ describe('Edge Cases and Error Handling', () => {
         advanceOneFrame(TIMING_VALUES.STANDARD_FRAME)
         advanceOneFrame(TIMING_VALUES.STANDARD_FRAME)
         advanceOneFrame(TIMING_VALUES.STANDARD_FRAME)
-      }).not.toThrow()
+      }).not.toThrowError()
 
       expect(errorCallback).toHaveBeenCalled()
 
@@ -928,7 +925,7 @@ describe('Edge Cases and Error Handling', () => {
       timeController.advance(0) // No time advance
 
       // Should not cause errors
-      expect(() => advanceOneFrame(16.67)).not.toThrow()
+      expect(() => advanceOneFrame(16.67)).not.toThrowError()
       expect(callback).toHaveBeenCalled()
 
       loop.pause()
@@ -1009,19 +1006,27 @@ describe('Essential Animation Behavior', () => {
     let lastBeginIndex = -1
     let lastDrawIndex = -1
 
+    let hasOrderingViolation = false
+
     actions.forEach((context, index) => {
       if (context.action === SnaprollActionType.Begin) {
         lastBeginIndex = index
       } else if (context.action === SnaprollActionType.Draw) {
-        expect(index).toBeGreaterThan(lastBeginIndex)
+        if (index <= lastBeginIndex) {
+          hasOrderingViolation = true
+        }
         lastDrawIndex = index
       } else if (context.action === SnaprollActionType.Update) {
-        expect(index).toBeGreaterThan(lastBeginIndex)
-        if (lastDrawIndex > lastBeginIndex) {
-          expect(index).toBeLessThan(lastDrawIndex)
+        if (index <= lastBeginIndex) {
+          hasOrderingViolation = true
+        }
+        if (lastDrawIndex > lastBeginIndex && index >= lastDrawIndex) {
+          hasOrderingViolation = true
         }
       }
     })
+
+    expect(hasOrderingViolation).toBe(false)
 
     loop.pause()
   })
@@ -1340,35 +1345,36 @@ describe('Interpolation and Quantization Tests', () => {
 
         // Validate sharp lower bound for m=1 cases when they exist
         const m1Cases = updatesPerDraw.filter((m) => m === 1)
-        if (m1Cases.length > 0) {
-          const Q = 1 << Math.ceil(Math.log2(drawRate))
-          const minStep = velocity / Q
-
-          for (let index = 1; index < interpolatedPositions.length; index++) {
-            if (updatesPerDraw[index] === 1) {
-              const step = interpolatedPositions[index] - interpolatedPositions[index - 1]
-              // Scale-aware tolerance relative to step magnitude
-              const tolerance = Math.max(1e-12, 32 * Number.EPSILON * Math.abs(minStep))
-              expect(step + tolerance).toBeGreaterThanOrEqual(minStep)
-            }
-          }
-        }
+        const Q = 1 << Math.ceil(Math.log2(drawRate))
+        const minStep = velocity / Q
+        const m1Indices = updatesPerDraw
+          .map((updates, index) => ({ index, updates }))
+          .filter(({ index, updates }) => updates === 1 && index > 0)
+          .map(({ index }) => index)
+        const m1LowerBoundSatisfied =
+          m1Cases.length === 0 ||
+          m1Indices.every((index) => {
+            const step = interpolatedPositions[index] - interpolatedPositions[index - 1]
+            // Scale-aware tolerance relative to step magnitude
+            const tolerance = Math.max(1e-12, 32 * Number.EPSILON * Math.abs(minStep))
+            return step + tolerance >= minStep
+          })
+        expect(m1LowerBoundSatisfied).toBe(true)
 
         // Draw gating robustness check: mostly informational, strict only for edge cases
         const zeroUpdateDraws = updatesPerDraw.filter((m) => m === 0).length
         const totalDraws = updatesPerDraw.length
+        const zeroUpdateRatio = zeroUpdateDraws / totalDraws
 
-        if (updateRate === drawRate + 1) {
+        if (updateRate === drawRate + 1 && zeroUpdateRatio > 0.5) {
           // For u=d+1, allow more zero-update draws due to timing sensitivity
-          if (zeroUpdateDraws / totalDraws > 0.5) {
-            console.warn(
-              `High zero-update draw ratio for ${updateRate}/${drawRate}: ${zeroUpdateDraws}/${totalDraws}`,
-            )
-          }
-        } else {
-          // For other rates, most draws should have ≥1 update
-          expect(zeroUpdateDraws / totalDraws).toBeLessThan(0.2)
+          console.warn(
+            `High zero-update draw ratio for ${updateRate}/${drawRate}: ${zeroUpdateDraws}/${totalDraws}`,
+          )
         }
+
+        const maximumAllowedZeroUpdateRatio = updateRate === drawRate + 1 ? 1 : 0.2
+        expect(zeroUpdateRatio).toBeLessThanOrEqual(maximumAllowedZeroUpdateRatio)
       })
     })
   })
@@ -1391,19 +1397,22 @@ describe('Interpolation and Quantization Tests', () => {
     const Q = 1 << Math.ceil(Math.log2(drawRate))
     const minStep = velocity / Q
 
-    let validatedM1Cases = 0
-    for (let index = 1; index < interpolatedPositions.length; index++) {
-      if (updatesPerDraw[index] === 1) {
-        const step = interpolatedPositions[index] - interpolatedPositions[index - 1]
-        // Scale-aware tolerance relative to step magnitude
-        const tolerance = Math.max(1e-12, 32 * Number.EPSILON * Math.abs(minStep))
-        expect(step + tolerance).toBeGreaterThanOrEqual(minStep)
-        validatedM1Cases++
-      }
-    }
+    const m1Indices = updatesPerDraw
+      .map((updates, index) => ({ index, updates }))
+      .filter(({ index, updates }) => updates === 1 && index > 0)
+      .map(({ index }) => index)
+
+    const m1LowerBoundSatisfied = m1Indices.every((index) => {
+      const step = interpolatedPositions[index] - interpolatedPositions[index - 1]
+      // Scale-aware tolerance relative to step magnitude
+      const tolerance = Math.max(1e-12, 32 * Number.EPSILON * Math.abs(minStep))
+      return step + tolerance >= minStep
+    })
+
+    expect(m1LowerBoundSatisfied).toBe(true)
 
     // Ensure we actually validated some m=1 cases
-    expect(validatedM1Cases).toBeGreaterThan(0)
+    expect(m1Indices.length).toBeGreaterThan(0)
   })
 
   it('validates exact alpha quantization grid membership', () => {
@@ -1523,13 +1532,16 @@ describe('Interpolation and Quantization Tests', () => {
       const minStep = velocity / Q
       expect(Q).toBeGreaterThan(drawRate) // Verify Q > d property
 
-      for (let index = 1; index < interpolatedPositions.length; index++) {
-        if (updatesPerDraw[index] === 1) {
-          const step = interpolatedPositions[index] - interpolatedPositions[index - 1]
-          const tolerance = Math.max(1e-12, 32 * Number.EPSILON * Math.abs(minStep))
-          expect(step + tolerance).toBeGreaterThanOrEqual(minStep)
-        }
-      }
+      const m1Indices = updatesPerDraw
+        .map((updates, index) => ({ index, updates }))
+        .filter(({ index, updates }) => updates === 1 && index > 0)
+        .map(({ index }) => index)
+      const m1LowerBoundSatisfied = m1Indices.every((index) => {
+        const step = interpolatedPositions[index] - interpolatedPositions[index - 1]
+        const tolerance = Math.max(1e-12, 32 * Number.EPSILON * Math.abs(minStep))
+        return step + tolerance >= minStep
+      })
+      expect(m1LowerBoundSatisfied).toBe(true)
     })
   })
 
@@ -1577,14 +1589,17 @@ describe('Interpolation and Quantization Tests', () => {
     const Q = 1 << Math.ceil(Math.log2(drawRate))
     const minStep = tinyVelocity / Q
 
-    for (let index = 1; index < interpolatedPositions.length; index++) {
-      if (updatesPerDraw[index] === 1) {
-        const step = interpolatedPositions[index] - interpolatedPositions[index - 1]
-        // Scale-aware tolerance for tiny velocity
-        const tolerance = Math.max(1e-12, 32 * Number.EPSILON * Math.abs(minStep))
-        expect(step + tolerance).toBeGreaterThanOrEqual(minStep)
-      }
-    }
+    const m1Indices = updatesPerDraw
+      .map((updates, index) => ({ index, updates }))
+      .filter(({ index, updates }) => updates === 1 && index > 0)
+      .map(({ index }) => index)
+    const m1LowerBoundSatisfied = m1Indices.every((index) => {
+      const step = interpolatedPositions[index] - interpolatedPositions[index - 1]
+      // Scale-aware tolerance for tiny velocity
+      const tolerance = Math.max(1e-12, 32 * Number.EPSILON * Math.abs(minStep))
+      return step + tolerance >= minStep
+    })
+    expect(m1LowerBoundSatisfied).toBe(true)
   })
 
   it('when m=0, alpha is non-decreasing and positions stay non-decreasing', () => {
@@ -1629,15 +1644,19 @@ describe('Interpolation and Quantization Tests', () => {
     for (let index = 1; index < interpolatedPositions.length; index++) {
       // Still non-decreasing overall
       expect(interpolatedPositions[index]).toBeGreaterThanOrEqual(interpolatedPositions[index - 1])
-
-      // Critical: when m=0, alpha must be non-decreasing (no updates, α rises within same bracket)
-      if (updatesPerDraw[index] === 0) {
-        expect(alphaValues[index]).toBeGreaterThanOrEqual(alphaValues[index - 1])
-        expect(interpolatedPositions[index]).toBeGreaterThanOrEqual(
-          interpolatedPositions[index - 1],
-        )
-      }
     }
+
+    // Critical: when m=0, alpha must be non-decreasing (no updates, α rises within same bracket)
+    const zeroUpdateIndices = updatesPerDraw
+      .map((updates, index) => ({ index, updates }))
+      .filter(({ index, updates }) => updates === 0 && index > 0)
+      .map(({ index }) => index)
+    const zeroUpdateMonotonicityIsValid = zeroUpdateIndices.every(
+      (index) =>
+        alphaValues[index] >= alphaValues[index - 1] &&
+        interpolatedPositions[index] >= interpolatedPositions[index - 1],
+    )
+    expect(zeroUpdateMonotonicityIsValid).toBe(true)
   })
 
   it('monotone with varying per-update increments remains non-decreasing', () => {

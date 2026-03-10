@@ -101,17 +101,17 @@ describe('calculateTimingStats', () => {
       expect(stats.min).toBe(expected.min)
       expect(stats.max).toBe(expected.max)
 
-      if (expected.standardDeviation === 0) {
-        expect(stats.standardDeviation).toBe(0)
-      } else {
-        expect(stats.standardDeviation).toBeCloseTo(expected.standardDeviation, 2)
-      }
+      const standardDeviationMatches =
+        expected.standardDeviation === 0
+          ? stats.standardDeviation === 0
+          : Math.abs(stats.standardDeviation - expected.standardDeviation) < 0.01
+      const coefficientOfVariationMatches =
+        expected.coefficientOfVariation === 0
+          ? stats.coefficientOfVariation === 0
+          : Math.abs(stats.coefficientOfVariation - expected.coefficientOfVariation) < 0.01
 
-      if (expected.coefficientOfVariation === 0) {
-        expect(stats.coefficientOfVariation).toBe(0)
-      } else {
-        expect(stats.coefficientOfVariation).toBeCloseTo(expected.coefficientOfVariation, 2)
-      }
+      expect(standardDeviationMatches).toBe(true)
+      expect(coefficientOfVariationMatches).toBe(true)
     },
   )
 })

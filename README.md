@@ -311,9 +311,20 @@ Each example demonstrates different aspects of snaproll:
 - Performance optimization techniques
 - Multiple subscription management
 
+## Timing precision and HTTP headers
+
+For higher timer precision in simulation or measurement workloads, configure the top-level response with:
+
+```http
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+```
+
+`Cross-Origin-Embedder-Policy: credentialless` is a possible alternative in some deployments, but support is not universal (notably unavailable in Safari and Safari on iOS).
+
 ## API
 
-### class Snaproll [↗](src/snaproll.ts#L459-L699 'Snaproll')
+### class Snaproll [↗](src/snaproll.ts#L460-L700 'Snaproll')
 
 Fixed-timestep animation loop with independent draw and update rates.
 
@@ -493,7 +504,7 @@ Cancels any previous ongoing operation before starting a new one. Results are de
 trigger(): void;
 ```
 
-### enum SnaprollActionType [↗](src/snaproll.ts#L7-L11 'SnaprollActionType')
+### enum SnaprollActionType [↗](src/snaproll.ts#L8-L12 'SnaprollActionType')
 
 Animation frame phases.
 
@@ -509,7 +520,7 @@ export declare enum SnaprollActionType
 | `Update` | <pre>1</pre> |
 | `Draw`   | <pre>2</pre> |
 
-### interface SnaprollActionBegin [↗](src/snaproll.ts#L16-L20 'SnaprollActionBegin')
+### interface SnaprollActionBegin [↗](src/snaproll.ts#L17-L21 'SnaprollActionBegin')
 
 Frame initialization action.
 
@@ -525,7 +536,7 @@ Current frame time
 timestamp: number
 ```
 
-### interface SnaprollActionDraw [↗](src/snaproll.ts#L37-L41 'SnaprollActionDraw')
+### interface SnaprollActionDraw [↗](src/snaproll.ts#L38-L42 'SnaprollActionDraw')
 
 Interpolated drawing action.
 
@@ -541,7 +552,7 @@ Interpolation factor \[0, 1)
 alpha: number
 ```
 
-### interface SnaprollActionUpdate [↗](src/snaproll.ts#L26-L32 'SnaprollActionUpdate')
+### interface SnaprollActionUpdate [↗](src/snaproll.ts#L27-L33 'SnaprollActionUpdate')
 
 Fixed timestep animation logic action. The updateStep counts down remaining updates in the current frame.
 
@@ -633,7 +644,7 @@ Array of recommended draw rates (Hz), sorted descending and de-duplicated. All v
 values: number[];
 ```
 
-### interface SnaprollOptions [↗](src/snaproll.ts#L94-L110 'SnaprollOptions')
+### interface SnaprollOptions [↗](src/snaproll.ts#L95-L111 'SnaprollOptions')
 
 Configuration interface for animation loop.
 
@@ -669,7 +680,7 @@ Update rate in Hz, determines fixed timestep size.
 updateRate: number
 ```
 
-### interface SnaprollResetOptions [↗](src/snaproll.ts#L118-L145 'SnaprollResetOptions')
+### interface SnaprollResetOptions [↗](src/snaproll.ts#L119-L146 'SnaprollResetOptions')
 
 Options accepted by [Snaproll.reset](#snaprollreset).
 
@@ -714,7 +725,7 @@ Preserve existing subscription callbacks during reset.
 keepSubscriptions?: boolean;
 ```
 
-### interface SnaprollSubscriptionControls [↗](src/snaproll.ts#L62-L69 'SnaprollSubscriptionControls')
+### interface SnaprollSubscriptionControls [↗](src/snaproll.ts#L63-L70 'SnaprollSubscriptionControls')
 
 Control interface for managing individual animation subscriptions.
 
@@ -772,7 +783,7 @@ declare module 'snaproll' {
 }
 ```
 
-### type SnaprollContext [↗](src/snaproll.ts#L52-L53 'SnaprollContext')
+### type SnaprollContext [↗](src/snaproll.ts#L53-L54 'SnaprollContext')
 
 Context object passed to subscription callbacks during animation frames.
 
@@ -795,7 +806,7 @@ export type SnaprollDrawRateAdvisorSubscription = (
 ) => void
 ```
 
-### type SnaprollSubscription [↗](src/snaproll.ts#L83 'SnaprollSubscription')
+### type SnaprollSubscription [↗](src/snaproll.ts#L84 'SnaprollSubscription')
 
 Subscription callback function.
 

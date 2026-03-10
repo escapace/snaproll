@@ -72,7 +72,7 @@ const setupCanvas = (): void => {
 
   ctx = canvas.getContext('2d', {
     alpha: false,
-    willReadFrequently: false
+    willReadFrequently: false,
   })
   if (!ctx) return
 

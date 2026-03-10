@@ -141,11 +141,11 @@ describe('median', () => {
   it.each(MEDIAN_TEST_DATA.EDGE_CASES)(
     'handles edge case: $description',
     ({ expected, input, useCloseTo }) => {
-      if (useCloseTo === true) {
-        expect(median(input)).toBeCloseTo(expected, 10)
-      } else {
-        expect(median(input)).toBe(expected)
-      }
+      const actualMedian = median(input)
+      const matchesExpected =
+        useCloseTo === true ? Math.abs(actualMedian - expected) < 1e-10 : actualMedian === expected
+
+      expect(matchesExpected).toBe(true)
     },
   )
 
