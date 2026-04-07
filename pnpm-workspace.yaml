@@ -28,6 +28,8 @@ minimumReleaseAgeExclude:
   - syncpack-linux-x64-musl
   - syncpack-windows-arm64
   - syncpack-windows-x64
+  # Renovate security update: vite@7.3.2
+  - vite@7.3.2
 onlyBuiltDependencies:
   - esbuild
   - lefthook
