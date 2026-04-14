@@ -143,7 +143,7 @@ describe('median', () => {
     ({ expected, input, useCloseTo }) => {
       const actualMedian = median(input)
       const matchesExpected =
-        useCloseTo === true ? Math.abs(actualMedian - expected) < 1e-10 : actualMedian === expected
+        useCloseTo === true ? Math.abs(actualMedian! - expected) < 1e-10 : actualMedian === expected
 
       expect(matchesExpected).toBe(true)
     },

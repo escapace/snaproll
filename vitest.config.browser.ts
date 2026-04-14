@@ -11,10 +11,6 @@ export default mergeConfig(
       __ENVIRONMENT__: JSON.stringify('development'),
       __VERSION__: JSON.stringify(version),
     },
-    esbuild: {
-      platform: 'browser',
-      target: builds.browser.target,
-    },
     test: {
       environment: 'jsdom',
       include: ['{src,test}/**/+([a-zA-Z0-9-])?(.browser).{test,spec}.?(c|m)[jt]s?(x)'],
