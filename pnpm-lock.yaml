@@ -10,7 +10,7 @@ importers:
     dependencies:
       '@escapace/with-promise':
         specifier: ^1.3.2
-        version: 1.3.2(@escapace/deferred@2.0.0)(@escapace/fsm@6.1.0(@escapace/reconcile@0.1.0(coastal@0.4.0)(es-toolkit@1.45.1))(@escapace/typelevel@2.0.3)(coastal@0.4.0)(es-toolkit@1.45.1))(coastal@0.4.0)
+        version: 1.3.2(@escapace/deferred@2.0.0)(@escapace/fsm@6.1.1(@escapace/reconcile@0.1.0(coastal@0.4.0)(es-toolkit@1.45.1))(@escapace/typelevel@2.0.3)(coastal@0.4.0)(es-toolkit@1.45.1))(coastal@0.4.0)
       coastal:
         specifier: ^0.4.0
         version: 0.4.0
@@ -582,8 +582,8 @@ packages:
     resolution: {integrity: sha512-3wXRbLveO912GsOMX75v5XNpXRbOodcMCCxel+XJP9gjC1dXv3kXZ6kEgk5GZt/SLisjcluGi8t7hWXMlU+kHg==}
     engines: {pnpm: '>=10.29.2'}
 
-  '@escapace/fsm@6.1.0':
-    resolution: {integrity: sha512-Nmxvv00IDzyH1XRX4olLfdX9h3Uab/boMynKeDp60JVFS45xVKsoHA7ZbBq6eZ/Y9ePLxh/EbCHQQf8YBGoDjw==}
+  '@escapace/fsm@6.1.1':
+    resolution: {integrity: sha512-ZNiTv7tQEIOXv6RTbn7ybrswoHzsHpQy7lQqMJ/ZG4lswvhf5XwkZiR6wUFYyWwvmFJtQ25EOP6UrA1eKuf/8w==}
     engines: {pnpm: '>=10.29.2'}
     peerDependencies:
       '@escapace/reconcile': ^0.1.0
@@ -4334,7 +4334,7 @@ snapshots:
 
   '@escapace/deferred@2.0.0': {}
 
-  '@escapace/fsm@6.1.0(@escapace/reconcile@0.1.0(coastal@0.4.0)(es-toolkit@1.45.1))(@escapace/typelevel@2.0.3)(coastal@0.4.0)(es-toolkit@1.45.1)':
+  '@escapace/fsm@6.1.1(@escapace/reconcile@0.1.0(coastal@0.4.0)(es-toolkit@1.45.1))(@escapace/typelevel@2.0.3)(coastal@0.4.0)(es-toolkit@1.45.1)':
     dependencies:
       '@escapace/reconcile': 0.1.0(coastal@0.4.0)(es-toolkit@1.45.1)
       '@escapace/typelevel': 2.0.3
@@ -4371,10 +4371,10 @@ snapshots:
 
   '@escapace/typelevel@2.0.3': {}
 
-  '@escapace/with-promise@1.3.2(@escapace/deferred@2.0.0)(@escapace/fsm@6.1.0(@escapace/reconcile@0.1.0(coastal@0.4.0)(es-toolkit@1.45.1))(@escapace/typelevel@2.0.3)(coastal@0.4.0)(es-toolkit@1.45.1))(coastal@0.4.0)':
+  '@escapace/with-promise@1.3.2(@escapace/deferred@2.0.0)(@escapace/fsm@6.1.1(@escapace/reconcile@0.1.0(coastal@0.4.0)(es-toolkit@1.45.1))(@escapace/typelevel@2.0.3)(coastal@0.4.0)(es-toolkit@1.45.1))(coastal@0.4.0)':
     dependencies:
       '@escapace/deferred': 2.0.0
-      '@escapace/fsm': 6.1.0(@escapace/reconcile@0.1.0(coastal@0.4.0)(es-toolkit@1.45.1))(@escapace/typelevel@2.0.3)(coastal@0.4.0)(es-toolkit@1.45.1)
+      '@escapace/fsm': 6.1.1(@escapace/reconcile@0.1.0(coastal@0.4.0)(es-toolkit@1.45.1))(@escapace/typelevel@2.0.3)(coastal@0.4.0)(es-toolkit@1.45.1)
       coastal: 0.4.0
 
   '@eslint-community/eslint-utils@4.9.1(eslint@10.2.0(jiti@2.6.1))':
