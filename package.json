@@ -19,7 +19,7 @@
     "@vueuse/core": "14.3.0",
     "es-toolkit": "1.46.1",
     "eslint": "10.3.0",
-    "eslint-config-escapace": "5.18.0",
+    "eslint-config-escapace": "5.19.0",
     "esroll": "1.2.3",
     "jsdom": "29.1.1",
     "knip": "6.11.0",
