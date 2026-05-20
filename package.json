@@ -15,14 +15,14 @@
     "@ls-lint/ls-lint": "2.3.1",
     "@tweakpane/core": "2.0.5",
     "@vitejs/plugin-vue": "6.0.6",
-    "@vitest/coverage-v8": "4.1.5",
+    "@vitest/coverage-v8": "4.1.6",
     "@vueuse/core": "14.3.0",
     "es-toolkit": "1.46.1",
     "eslint": "10.3.0",
     "eslint-config-escapace": "5.19.0",
     "esroll": "1.2.3",
     "jsdom": "29.1.1",
-    "knip": "6.11.0",
+    "knip": "6.13.1",
     "lefthook": "2.1.6",
     "prettier": "3.8.3",
     "prettier-config-escapace": "1.2.2",
@@ -30,10 +30,10 @@
     "tsx": "4.21.0",
     "tweakpane": "4.0.5",
     "typescript": "6.0.3",
-    "vite": "8.0.10",
-    "vitest": "4.1.5",
-    "vue": "3.5.33",
-    "vue-router": "5.0.6"
+    "vite": "8.0.12",
+    "vitest": "4.1.6",
+    "vue": "3.5.34",
+    "vue-router": "5.0.7"
   },
   "devEngines": {
     "packageManager": {
