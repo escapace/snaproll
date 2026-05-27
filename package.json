@@ -26,7 +26,7 @@
     "lefthook": "2.1.6",
     "prettier": "3.8.3",
     "prettier-config-escapace": "1.2.2",
-    "syncpack": "14.3.1",
+    "syncpack": "15.3.1",
     "tsx": "4.21.0",
     "tweakpane": "4.0.5",
     "typescript": "6.0.3",
