@@ -1,5 +1,5 @@
+/* eslint-disable typescript/no-empty-object-type */
 /* eslint-disable math/prefer-math-trunc */
-import type { SnaprollUserContext } from './index'
 import { assert } from './utilities/assert'
 import { isPositiveNumberOrUndefined } from './utilities/is-positive-number-or-undefined'
 /**
@@ -45,13 +45,17 @@ export interface SnaprollActionDraw extends Omit<SnaprollActionUpdate, 'action'>
  * Context object passed to subscription callbacks during animation frames.
  *
  * @remarks
- * Intersects the action-specific payload with {@link SnaprollUserContext}, so that custom state
+ * Intersects the action-specific payload with `TContext`, so that custom state
  * persists across {@link SnaprollActionType | loop phases}. Inspect the `action` discriminant to
  * determine which `SnaprollAction*` view is valid while treating application-specific fields as shared
  * state.
  */
-export type SnaprollContext = (SnaprollActionBegin | SnaprollActionDraw | SnaprollActionUpdate) &
-  SnaprollUserContext
+export type SnaprollContext<TContext extends {} = {}> = (
+  | SnaprollActionBegin
+  | SnaprollActionDraw
+  | SnaprollActionUpdate
+) &
+  TContext
 
 /**
  * Control interface for managing individual animation subscriptions.
@@ -81,7 +85,9 @@ export interface SnaprollSubscriptionControls {
  *
  * - `undefined` or `false` continues normal execution
  */
-export type SnaprollSubscription = (context: SnaprollContext) => boolean | undefined
+export type SnaprollSubscription<TContext extends {} = {}> = (
+  context: SnaprollContext<TContext>,
+) => boolean | undefined
 
 /**
  * Configuration interface for animation loop.
@@ -92,7 +98,7 @@ export type SnaprollSubscription = (context: SnaprollContext) => boolean | undef
  * for draw and update rates.
  *
  */
-export interface SnaprollOptions {
+export interface SnaprollOptions<TContext extends {} = {}> {
   /**
    * Draw rate in Hz, controls visual frame timing.
    * @defaultvalue 60
@@ -107,7 +113,7 @@ export interface SnaprollOptions {
    * Optional shared state object passed to all subscription callbacks.
    * @defaultvalue A new object created for the instance.
    */
-  context?: SnaprollUserContext
+  context?: TContext
 }
 
 /**
@@ -116,7 +122,9 @@ export interface SnaprollOptions {
  * @remarks
  * Extends {@link SnaprollOptions} and controls how subscriptions and context objects are preserved.
  */
-export interface SnaprollResetOptions extends Partial<SnaprollOptions> {
+export interface SnaprollResetOptions<TContext extends {} = {}> extends Partial<
+  SnaprollOptions<TContext>
+> {
   /**
    * Preserve existing subscription callbacks during reset.
    * @defaultvalue true
@@ -128,7 +136,7 @@ export interface SnaprollResetOptions extends Partial<SnaprollOptions> {
    */
   keepContext?: boolean
   /**
-   * Determines the {@link SnaprollUserContext | context} to use after reset completes.
+   * Determines the context to use after reset completes.
    *
    * @remarks
    * The context resolution follows these rules:
@@ -142,14 +150,14 @@ export interface SnaprollResetOptions extends Partial<SnaprollOptions> {
    * - If `keepContext=false` and `context` is omitted: creates a new empty context object.
    *
    */
-  context?: SnaprollUserContext
+  context?: TContext
 }
 
 interface SubscriptionState {
   active: boolean
 }
 
-type Context = Omit<SnaprollUserContext, 'action' | 'alpha' | 'timestamp' | 'timestep'> &
+type Context<TContext extends {}> = Omit<TContext, 'action' | 'alpha' | 'timestamp' | 'timestep'> &
   Partial<
     { action: SnaprollActionType } & Omit<SnaprollActionBegin, 'action'> &
       Omit<SnaprollActionDraw, 'action'> &
@@ -222,8 +230,8 @@ const STATES = {
   [TypeState.Paused]: 'paused',
 } as const
 
-interface Store {
-  context: Context
+interface Store<TContext extends {}> {
+  context: Context<TContext>
   drawRate: number
   pendingAnimationFrame: number
   pendingTime: number
@@ -231,8 +239,8 @@ interface Store {
   quantizationGrid: number
   quantizationGridInverse: number
   state: TypeState
-  subscriptions: SnaprollSubscription[]
-  subscriptionStateMap: Map<SnaprollSubscription, SubscriptionState>
+  subscriptions: Array<SnaprollSubscription<TContext>>
+  subscriptionStateMap: Map<SnaprollSubscription<TContext>, SubscriptionState>
   targetFrameTime: number
   targetTimestamp: number
   timestamp: number
@@ -241,7 +249,10 @@ interface Store {
   updateRate: number
 }
 
-const CONTEXT_EMPTY: Record<keyof Required<Context>, undefined> = {
+const CONTEXT_EMPTY: Record<
+  'action' | 'alpha' | 'timestamp' | 'timestep' | 'updateStep',
+  undefined
+> = {
   action: undefined,
   alpha: undefined,
   timestamp: undefined,
@@ -249,13 +260,16 @@ const CONTEXT_EMPTY: Record<keyof Required<Context>, undefined> = {
   updateStep: undefined,
 }
 
-const createStore = (
+const createStore = <TContext extends {}>(
   options: Partial<
-    { subscriptions: Array<[SnaprollSubscription, SubscriptionState]> } & Pick<Store, 'state'> &
-      SnaprollOptions
+    { subscriptions: Array<[SnaprollSubscription<TContext>, SubscriptionState]> } & Pick<
+      Store<TContext>,
+      'state'
+    > &
+      SnaprollOptions<TContext>
   >,
   // previous = [],
-): Store => {
+): Store<TContext> => {
   assertOptions(options)
 
   // The amount of time (in milliseconds) to simulate each time update()
@@ -275,13 +289,16 @@ const createStore = (
   // stopping the loop.
   const pendingAnimationFrame = 0
 
-  const context: Context =
+  // Safe: CONTEXT_EMPTY has the exact shape needed; TypeScript cannot prove
+  // Omit<TContext, ...> is satisfied by a literal when TContext is generic.
+  const context: Context<TContext> =
     options.context === undefined
-      ? { ...CONTEXT_EMPTY }
+      ? // eslint-disable-next-line typescript/consistent-type-assertions
+        ({ ...CONTEXT_EMPTY } as Context<TContext>)
       : Object.assign(options.context, CONTEXT_EMPTY)
 
-  const subscriptions: SnaprollSubscription[] = []
-  const subscriptionStateMap = new Map<SnaprollSubscription, SubscriptionState>()
+  const subscriptions: Array<SnaprollSubscription<TContext>> = []
+  const subscriptionStateMap = new Map<SnaprollSubscription<TContext>, SubscriptionState>()
 
   if (options.subscriptions !== undefined) {
     for (const [subscriptionFunction, subscriptionState] of options.subscriptions) {
@@ -311,7 +328,7 @@ const createStore = (
 
 const createUpdateRateStorePartial = (
   updateRate: number,
-): Pick<Store, 'timestep' | 'timestepInverse' | 'updateRate'> => {
+): Pick<Store<{}>, 'timestep' | 'timestepInverse' | 'updateRate'> => {
   const timestep = 1000 / updateRate
   const timestepInverse = 1 / timestep
 
@@ -325,7 +342,7 @@ const createUpdateRateStorePartial = (
 const createDrawRateStorePartial = (
   drawRate: number,
 ): Pick<
-  Store,
+  Store<{}>,
   | 'drawRate'
   | 'quantizationAlphaMax'
   | 'quantizationGrid'
@@ -347,7 +364,10 @@ const createDrawRateStorePartial = (
   }
 }
 
-const createAnimate = (store: Store, callback: () => ReturnType<SnaprollSubscription>) => {
+const createAnimate = <TContext extends {}>(
+  store: Store<TContext>,
+  callback: () => ReturnType<SnaprollSubscription<TContext>>,
+) => {
   const context = store.context
 
   function animate(): void {
@@ -457,17 +477,17 @@ const createAnimate = (store: Store, callback: () => ReturnType<SnaprollSubscrip
 /**
  * Fixed-timestep animation loop with independent draw and update rates.
  */
-export class Snaproll {
-  private readonly callback = (): ReturnType<SnaprollSubscription> => {
+export class Snaproll<TContext extends {} = {}> {
+  private readonly callback = (): ReturnType<SnaprollSubscription<TContext>> => {
     const { context, subscriptions: activeSubscriptions } = this.store
     const length = activeSubscriptions.length
 
-    let state: ReturnType<SnaprollSubscription> = undefined
+    let state: ReturnType<SnaprollSubscription<TContext>> = undefined
 
     for (let index = 0; index < length; index++) {
       const subscription = activeSubscriptions[index]
 
-      if (subscription(context as SnaprollContext) === true) {
+      if (subscription(context as SnaprollContext<TContext>) === true) {
         state = true
       }
     }
@@ -490,7 +510,7 @@ export class Snaproll {
     }
   }
 
-  private store: Store
+  private store: Store<TContext>
 
   /**
    * Creates animation loop instance with specified configuration.
@@ -499,8 +519,8 @@ export class Snaproll {
    * @remarks
    * Uses the default {@link SnaprollOptions.updateRate | updateRate} of 60 Hz, {@link SnaprollOptions.drawRate | drawRate} of 60 Hz, and a new shared context object when those entries are not provided.
    */
-  constructor(options: Partial<SnaprollOptions> = {}) {
-    this.store = createStore(options)
+  constructor(options: Partial<SnaprollOptions<TContext>> = {}) {
+    this.store = createStore<TContext>(options)
   }
 
   private idle() {
@@ -542,10 +562,10 @@ export class Snaproll {
    *
    * - `keepSubscriptions` defaults to `true`, preserving existing subscriptions unless explicitly disabled.
    *
-   * - `keepContext` defaults to `true`, reusing the current context. Providing {@link SnaprollUserContext | context} copies existing entries when `keepContext` stays `true`, or replaces the context when `keepContext` is `false`.
+   * - `keepContext` defaults to `true`, reusing the current context. Providing `context` copies existing entries when `keepContext` stays `true`, or replaces the context when `keepContext` is `false`.
    *
    */
-  public reset(options: SnaprollResetOptions = {}) {
+  public reset(options: SnaprollResetOptions<TContext> = {}) {
     const previousStore = this.store
     const keepSubscriptions = options?.keepSubscriptions !== false
     const keepContext = options?.keepContext !== false
@@ -556,15 +576,14 @@ export class Snaproll {
     this.pause()
 
     // preserve the options
-    this.store = createStore({
-      context:
-        keepContext && hasContext
-          ? Object.assign(options.context!, this.store.context)
-          : hasContext
-            ? options.context!
-            : keepContext
-              ? this.store.context
-              : undefined,
+    this.store = createStore<TContext>({
+      context: (keepContext && hasContext
+        ? Object.assign(options.context!, this.store.context)
+        : hasContext
+          ? options.context!
+          : keepContext
+            ? this.store.context
+            : undefined) as TContext | undefined,
       drawRate: options.drawRate ?? previousStore.drawRate,
       subscriptions: keepSubscriptions
         ? Array.from(previousStore.subscriptionStateMap.entries())
@@ -612,7 +631,7 @@ export class Snaproll {
    * Subscriptions run in insertion order. New subscriptions start immediately unless `options.immediate` is set to `false`.
    */
   public subscribe(
-    value: SnaprollSubscription,
+    value: SnaprollSubscription<TContext>,
     options?: { immediate?: boolean },
   ): SnaprollSubscriptionControls {
     let subscriptionState = this.store.subscriptionStateMap.get(value)
