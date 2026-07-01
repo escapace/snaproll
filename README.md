@@ -254,14 +254,17 @@ Unless paused, snaproll starts automatically when subscriptions are added and be
 
 ### Shared context
 
-Use TypeScript declaration merging to add type safety for shared state:
+Pass a type parameter to add type safety for shared state:
 
 ```ts
-declare module 'snaproll' {
-  interface SnaprollUserContext {
-    score?: number
-  }
+interface MyContext {
+  score: number
 }
+
+// Pass the context type and initial value
+const snaproll = new Snaproll<MyContext>({
+  context: { score: 0 },
+})
 
 // Now available in all context handlers
 snaproll.subscribe((context) => {
@@ -324,12 +327,12 @@ Cross-Origin-Embedder-Policy: require-corp
 
 ## API
 
-### class Snaproll [↗](src/snaproll.ts#L460-L700 'Snaproll')
+### class Snaproll [↗](src/snaproll.ts#L480-L719 'Snaproll')
 
 Fixed-timestep animation loop with independent draw and update rates.
 
 ```typescript
-export declare class Snaproll
+export declare class Snaproll<TContext extends {} = {}>
 ```
 
 #### new Snaproll
@@ -337,14 +340,14 @@ export declare class Snaproll
 Creates animation loop instance with specified configuration.
 
 ```typescript
-constructor(options?: Partial<SnaprollOptions>);
+constructor(options?: Partial<SnaprollOptions<TContext>>);
 ```
 
 ##### Parameters
 
-| Parameter | Type                                                                                           | Description                            |
-| --------- | ---------------------------------------------------------------------------------------------- | -------------------------------------- |
-| `options` | <pre>Partial<[SnaprollOptions](#interface-snaprolloptions- 'interface SnaprollOptions')></pre> | Options applied during initialization. |
+| Parameter | Type                                                                                                      | Description                            |
+| --------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `options` | <pre>Partial<[SnaprollOptions](#interface-snaprolloptions- 'interface SnaprollOptions')\<TContext>></pre> | Options applied during initialization. |
 
 ##### Remarks
 
@@ -363,21 +366,21 @@ pause(): void;
 Resets the animation loop with optional configuration updates.
 
 ```typescript
-reset(options?: SnaprollResetOptions): void;
+reset(options?: SnaprollResetOptions<TContext>): void;
 ```
 
 ##### Parameters
 
-| Parameter | Type                                                                                                 | Description                                                               |
-| --------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `options` | <pre>[SnaprollResetOptions](#interface-snaprollresetoptions- 'interface SnaprollResetOptions')</pre> | Reset options controlling configuration overrides and retention behavior. |
+| Parameter | Type                                                                                                            | Description                                                               |
+| --------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `options` | <pre>[SnaprollResetOptions](#interface-snaprollresetoptions- 'interface SnaprollResetOptions')\<TContext></pre> | Reset options controlling configuration overrides and retention behavior. |
 
 ##### Remarks
 
 Retains the current [updateRate](#snaprolloptionsupdaterate) and [drawRate](#snaprolloptionsdrawrate) when those fields are omitted.
 
 - `keepSubscriptions` defaults to `true`, preserving existing subscriptions unless explicitly disabled.
-- `keepContext` defaults to `true`, reusing the current context. Providing [context](#interface-snaprollusercontext-) copies existing entries when `keepContext` stays `true`, or replaces the context when `keepContext` is `false`.
+- `keepContext` defaults to `true`, reusing the current context. Providing `context` copies existing entries when `keepContext` stays `true`, or replaces the context when `keepContext` is `false`.
 
 #### Snaproll.resume
 
@@ -392,17 +395,17 @@ resume(): void;
 Registers subscription callback for animation frame processing.
 
 ```typescript
-subscribe(value: SnaprollSubscription, options?: {
+subscribe(value: SnaprollSubscription<TContext>, options?: {
   immediate?: boolean;
 }): SnaprollSubscriptionControls;
 ```
 
 ##### Parameters
 
-| Parameter | Type                                                                                       | Description                                                                                                         |
-| --------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
-| `value`   | <pre>[SnaprollSubscription](#type-snaprollsubscription- 'type SnaprollSubscription')</pre> | Callback function to execute during frame processing.                                                               |
-| `options` | <pre>{<br> immediate?: boolean;<br>}</pre>                                                 | Subscription configuration. The `immediate` flag defaults to `true` and activates the subscription on registration. |
+| Parameter | Type                                                                                                  | Description                                                                                                         |
+| --------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `value`   | <pre>[SnaprollSubscription](#type-snaprollsubscription- 'type SnaprollSubscription')\<TContext></pre> | Callback function to execute during frame processing.                                                               |
+| `options` | <pre>{<br> immediate?: boolean;<br>}</pre>                                                            | Subscription configuration. The `immediate` flag defaults to `true` and activates the subscription on registration. |
 
 ##### Returns
 
@@ -644,12 +647,12 @@ Array of recommended draw rates (Hz), sorted descending and de-duplicated. All v
 values: number[];
 ```
 
-### interface SnaprollOptions [↗](src/snaproll.ts#L95-L111 'SnaprollOptions')
+### interface SnaprollOptions [↗](src/snaproll.ts#L101-L117 'SnaprollOptions')
 
 Configuration interface for animation loop.
 
 ```typescript
-export interface SnaprollOptions
+export interface SnaprollOptions<TContext extends {} = {}>
 ```
 
 #### Remarks
@@ -661,7 +664,7 @@ drawRate and updateRate operate independently, allowing different frequencies fo
 Optional shared state object passed to all subscription callbacks.
 
 ```typescript
-context?: SnaprollUserContext;
+context?: TContext;
 ```
 
 #### SnaprollOptions.drawRate
@@ -680,12 +683,13 @@ Update rate in Hz, determines fixed timestep size.
 updateRate: number
 ```
 
-### interface SnaprollResetOptions [↗](src/snaproll.ts#L119-L146 'SnaprollResetOptions')
+### interface SnaprollResetOptions [↗](src/snaproll.ts#L125-L154 'SnaprollResetOptions')
 
 Options accepted by [Snaproll.reset](#snaprollreset).
 
 ```typescript
-export interface SnaprollResetOptions extends Partial<SnaprollOptions>
+export interface SnaprollResetOptions<TContext extends {} = {}>
+  extends Partial<SnaprollOptions<TContext>>
 ```
 
 #### Remarks
@@ -694,10 +698,10 @@ Extends [SnaprollOptions](#interface-snaprolloptions-) and controls how subscrip
 
 #### SnaprollResetOptions.context
 
-Determines the [context](#interface-snaprollusercontext-) to use after reset completes.
+Determines the context to use after reset completes.
 
 ```typescript
-context?: SnaprollUserContext;
+context?: TContext;
 ```
 
 ##### Remarks
@@ -725,7 +729,7 @@ Preserve existing subscription callbacks during reset.
 keepSubscriptions?: boolean;
 ```
 
-### interface SnaprollSubscriptionControls [↗](src/snaproll.ts#L63-L70 'SnaprollSubscriptionControls')
+### interface SnaprollSubscriptionControls [↗](src/snaproll.ts#L67-L74 'SnaprollSubscriptionControls')
 
 Control interface for managing individual animation subscriptions.
 
@@ -761,40 +765,22 @@ Removes this subscription
 unsubscribe: () => void;
 ```
 
-### interface SnaprollUserContext [↗](src/index.ts#L19 'SnaprollUserContext')
-
-Extension point for application-specific state that the animation loop shares across frames.
-
-```typescript
-export interface SnaprollUserContext
-```
-
-#### Remarks
-
-Augment this interface via declaration merging so custom properties flow into [SnaprollContext](#type-snaprollcontext-). Snaproll maintains a single context instance per controller; store long-lived data on user fields and rely on [action-specific](#enum-snaprollactiontype-) payloads for phase details.
-
-#### Examples
-
-```ts
-declare module 'snaproll' {
-  interface SnaprollUserContext {
-    score: number
-  }
-}
-```
-
-### type SnaprollContext [↗](src/snaproll.ts#L53-L54 'SnaprollContext')
+### type SnaprollContext [↗](src/snaproll.ts#L53-L58 'SnaprollContext')
 
 Context object passed to subscription callbacks during animation frames.
 
 ```typescript
-export type SnaprollContext = (SnaprollActionBegin | SnaprollActionDraw | SnaprollActionUpdate) &
-  SnaprollUserContext
+export type SnaprollContext<TContext extends {} = {}> = (
+  | SnaprollActionBegin
+  | SnaprollActionDraw
+  | SnaprollActionUpdate
+) &
+  TContext
 ```
 
 #### Remarks
 
-Intersects the action-specific payload with [SnaprollUserContext](#interface-snaprollusercontext-), so that custom state persists across [loop phases](#enum-snaprollactiontype-). Inspect the `action` discriminant to determine which `SnaprollAction*` view is valid while treating application-specific fields as shared state.
+Intersects the action-specific payload with `TContext`, so that custom state persists across [loop phases](#enum-snaprollactiontype-). Inspect the `action` discriminant to determine which `SnaprollAction*` view is valid while treating application-specific fields as shared state.
 
 ### type SnaprollDrawRateAdvisorSubscription [↗](src/draw-rate-advisor.ts#L161-L163 'SnaprollDrawRateAdvisorSubscription')
 
@@ -806,12 +792,14 @@ export type SnaprollDrawRateAdvisorSubscription = (
 ) => void
 ```
 
-### type SnaprollSubscription [↗](src/snaproll.ts#L84 'SnaprollSubscription')
+### type SnaprollSubscription [↗](src/snaproll.ts#L88-L90 'SnaprollSubscription')
 
 Subscription callback function.
 
 ```typescript
-export type SnaprollSubscription = (context: SnaprollContext) => boolean | undefined
+export type SnaprollSubscription<TContext extends {} = {}> = (
+  context: SnaprollContext<TContext>,
+) => boolean | undefined
 ```
 
 #### Remarks
@@ -819,7 +807,7 @@ export type SnaprollSubscription = (context: SnaprollContext) => boolean | undef
 Return value controls frame execution flow:
 
 - `true` from Begin phase skips the entire frame
-- `true` from Update phase skips remaining updates and draw for current frame
+- `true` from Update phase skips remaining update steps and draw for current frame
 - `undefined` or `false` continues normal execution
 
 ## Acknowledgments
