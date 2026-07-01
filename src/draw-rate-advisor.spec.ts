@@ -253,7 +253,7 @@ describe('DrawRateAdvisor', () => {
       const frames = warmup + samples + 4
 
       // Use a frequency that when divided would create near-integer boundary cases
-      const periods = generatePeriods({ frames, frequency: 90.000_000_003 }) // 90/3 = 30.000000001
+      const periods = generatePeriods({ frames, frequency: 90.000000003 }) // 90/3 = 30.000000001
 
       const result = await runAdvisor({ samples, warmup }, periods)
 
@@ -424,9 +424,9 @@ describe('DrawRateAdvisor', () => {
       const frames = warmup + samples + 4
 
       const periods = generatePeriods({ frames, frequency: 60 })
-      await expect(
-        runAdvisor({ canonicalBases: [], samples, warmup }, periods),
-      ).rejects.toThrowError('canonicalBases must be a non-empty array of positive integers')
+      await expect(runAdvisor({ canonicalBases: [], samples, warmup }, periods)).rejects.toThrow(
+        'canonicalBases must be a non-empty array of positive integers',
+      )
     })
   })
 
@@ -437,7 +437,7 @@ describe('DrawRateAdvisor', () => {
       const periods = generatePeriods({ frames, frequency: 60 })
 
       // Should throw error for samples below minimum
-      await expect(runAdvisor({ samples: 20, warmup }, periods)).rejects.toThrowError(
+      await expect(runAdvisor({ samples: 20, warmup }, periods)).rejects.toThrow(
         'samples must be a positive integer ≥ 30',
       )
     })
@@ -448,7 +448,7 @@ describe('DrawRateAdvisor', () => {
       const periods = generatePeriods({ frames, frequency: 60 })
 
       // Should throw error for negative warmup
-      await expect(runAdvisor({ samples, warmup: -5 }, periods)).rejects.toThrowError(
+      await expect(runAdvisor({ samples, warmup: -5 }, periods)).rejects.toThrow(
         'warmup must be a non-negative integer ≥ 0',
       )
     })
@@ -460,7 +460,7 @@ describe('DrawRateAdvisor', () => {
       const periods = generatePeriods({ frames, frequency: 60 })
 
       // Should throw error for maxDivisor below minimum
-      await expect(runAdvisor({ maxDivisor: 0, samples, warmup }, periods)).rejects.toThrowError(
+      await expect(runAdvisor({ maxDivisor: 0, samples, warmup }, periods)).rejects.toThrow(
         'maxDivisor must be a positive integer ≥ 1',
       )
     })
@@ -472,7 +472,7 @@ describe('DrawRateAdvisor', () => {
       const periods = generatePeriods({ frames, frequency: 60 })
 
       // Should throw error for minDraw below minimum
-      await expect(runAdvisor({ minDraw: 2, samples, warmup }, periods)).rejects.toThrowError(
+      await expect(runAdvisor({ minDraw: 2, samples, warmup }, periods)).rejects.toThrow(
         'minDraw must be a positive integer ≥ 5',
       )
     })
@@ -482,7 +482,7 @@ describe('DrawRateAdvisor', () => {
       const frames = warmup + 60 + 4
       const periods = generatePeriods({ frames, frequency: 60 })
 
-      await expect(runAdvisor({ samples: 30.5, warmup }, periods)).rejects.toThrowError(
+      await expect(runAdvisor({ samples: 30.5, warmup }, periods)).rejects.toThrow(
         'samples must be a positive integer ≥ 30',
       )
     })
@@ -492,7 +492,7 @@ describe('DrawRateAdvisor', () => {
       const frames = 10 + samples + 4
       const periods = generatePeriods({ frames, frequency: 60 })
 
-      await expect(runAdvisor({ samples, warmup: 5.5 }, periods)).rejects.toThrowError(
+      await expect(runAdvisor({ samples, warmup: 5.5 }, periods)).rejects.toThrow(
         'warmup must be a non-negative integer ≥ 0',
       )
     })
@@ -503,7 +503,7 @@ describe('DrawRateAdvisor', () => {
       const frames = warmup + samples + 4
       const periods = generatePeriods({ frames, frequency: 60 })
 
-      await expect(runAdvisor({ maxDivisor: 3.5, samples, warmup }, periods)).rejects.toThrowError(
+      await expect(runAdvisor({ maxDivisor: 3.5, samples, warmup }, periods)).rejects.toThrow(
         'maxDivisor must be a positive integer ≥ 1',
       )
     })
@@ -514,7 +514,7 @@ describe('DrawRateAdvisor', () => {
       const frames = warmup + samples + 4
       const periods = generatePeriods({ frames, frequency: 60 })
 
-      await expect(runAdvisor({ minDraw: 10.5, samples, warmup }, periods)).rejects.toThrowError(
+      await expect(runAdvisor({ minDraw: 10.5, samples, warmup }, periods)).rejects.toThrow(
         'minDraw must be a positive integer ≥ 5',
       )
     })
@@ -527,7 +527,7 @@ describe('DrawRateAdvisor', () => {
 
       await expect(
         runAdvisor({ canonicalBases: [60, -30, 120], samples, warmup }, periods),
-      ).rejects.toThrowError('canonicalBases must be a non-empty array of positive integers')
+      ).rejects.toThrow('canonicalBases must be a non-empty array of positive integers')
     })
 
     it('validates canonicalBases contains only integers', async () => {
@@ -538,7 +538,7 @@ describe('DrawRateAdvisor', () => {
 
       await expect(
         runAdvisor({ canonicalBases: [60, 30.5, 120], samples, warmup }, periods),
-      ).rejects.toThrowError('canonicalBases must be a non-empty array of positive integers')
+      ).rejects.toThrow('canonicalBases must be a non-empty array of positive integers')
     })
 
     it('handles pathologically short timestamp collection', async () => {

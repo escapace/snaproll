@@ -77,7 +77,7 @@ export interface SnaprollSubscriptionControls {
  *
  * - `true` from Begin phase skips the entire frame
  *
- * - `true` from Update phase skips remaining updates and draw for current frame
+ * - `true` from Update phase skips remaining update steps and draw for current frame
  *
  * - `undefined` or `false` continues normal execution
  */

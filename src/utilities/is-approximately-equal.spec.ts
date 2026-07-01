@@ -23,7 +23,7 @@ const APPROXIMATE_EQUALITY_TEST_DATA = {
   EDGE_CASES: [
     { a: 0, b: 1e-11, description: 'zero vs tiny number', expected: true },
     { a: 1e10, b: 1e10 + 1, description: 'large numbers with unit difference', expected: false },
-    { a: -1, b: -1.000_000_000_01, description: 'negative numbers within epsilon', expected: true },
+    { a: -1, b: -1.00000000001, description: 'negative numbers within epsilon', expected: true },
   ] as const,
 } as const
 

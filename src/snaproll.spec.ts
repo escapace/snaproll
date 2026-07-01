@@ -231,7 +231,7 @@ function testMonotonicityWithUpdateTracking(
  * @param errorMessage - Expected error message
  */
 function expectInvalidValueError(createInstance: () => void, errorMessage: string): void {
-  expect(createInstance).toThrowError(errorMessage)
+  expect(createInstance).toThrow(errorMessage)
 }
 
 /**
@@ -317,9 +317,7 @@ function collectActionContexts(
     all: allContexts,
     begin: allContexts.filter((c) => c.action === SnaprollActionType.Begin),
     draw: allContexts.filter((c) => c.action === SnaprollActionType.Draw),
-    update: allContexts.filter(
-      (c) => c.action === SnaprollActionType.Update,
-    ) as SnaprollActionUpdate[],
+    update: allContexts.filter((c) => c.action === SnaprollActionType.Update),
   }
 }
 
@@ -811,7 +809,7 @@ describe('Edge Cases and Error Handling', () => {
         advanceOneFrame(TIMING_VALUES.STANDARD_FRAME)
         advanceOneFrame(TIMING_VALUES.STANDARD_FRAME)
         advanceOneFrame(TIMING_VALUES.STANDARD_FRAME)
-      }).not.toThrowError()
+      }).not.toThrow()
 
       expect(errorCallback).toHaveBeenCalled()
 
@@ -925,7 +923,7 @@ describe('Edge Cases and Error Handling', () => {
       timeController.advance(0) // No time advance
 
       // Should not cause errors
-      expect(() => advanceOneFrame(16.67)).not.toThrowError()
+      expect(() => advanceOneFrame(16.67)).not.toThrow()
       expect(callback).toHaveBeenCalled()
 
       loop.pause()

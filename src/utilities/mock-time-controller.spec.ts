@@ -168,7 +168,7 @@ describe('MockTimeController', () => {
       globalThis.requestAnimationFrame(errorCallback)
       globalThis.requestAnimationFrame(normalCallback)
 
-      expect(() => timeController.advance(TIME_VALUES.CALLBACK_ADVANCE)).not.toThrowError()
+      expect(() => timeController.advance(TIME_VALUES.CALLBACK_ADVANCE)).not.toThrow()
       expect(errorCallback).toHaveBeenCalled()
       expect(normalCallback).toHaveBeenCalled()
     })
