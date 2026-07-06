@@ -7,52 +7,52 @@ importers:
     configDependencies: {}
     packageManagerDependencies:
       '@pnpm/exe':
-        specifier: 11.7.0
-        version: 11.7.0
+        specifier: 11.10.0
+        version: 11.10.0
       pnpm:
-        specifier: 11.7.0
-        version: 11.7.0
+        specifier: 11.10.0
+        version: 11.10.0
 
 packages:
 
-  '@pnpm/exe@11.7.0':
-    resolution: {integrity: sha512-3CujpSSp2PIDE0pwu7mWSdjhdDqaZa7OppVooECWWaNEoA/z66s9FZts1MhDO+2yq1XER4gBHh84DVbFN/r1rA==}
+  '@pnpm/exe@11.10.0':
+    resolution: {integrity: sha512-mrmfi2C7LpZkyq0voKKye6MzrK8/K7tYQRiSB/jqOiwnFtQxxcA3xGTY9cEsrGpNl2ClPecQofLuj+BO8AIsxw==}
     hasBin: true
 
-  '@pnpm/linux-arm64@11.7.0':
-    resolution: {integrity: sha512-ANTX2SlMO+d2y/4bYQhHCwHPX7gSSADJ5+pMUIiDFzIsybnFFaJdZboaFfq9NOxCbETcnDxqZ95Rz3+NHx1JIw==}
+  '@pnpm/linux-arm64@11.10.0':
+    resolution: {integrity: sha512-NbvDeUfs0SJuli9OPvgVvmnlbo2DvJ861XGXKrzgLu5AuTnLDLXgbZEEUd8mJ5I0YNrqOVXSWVfWEqiAazWzPA==}
     cpu: [arm64]
     os: [linux]
 
-  '@pnpm/linux-x64@11.7.0':
-    resolution: {integrity: sha512-fr75tqixXoS8cnA81HQIomjOGEPnsOsd3xCDL5pMNY5raOXbKurtgRV+RjATvjxlJxSLIVFKegABlxAiB7q72A==}
+  '@pnpm/linux-x64@11.10.0':
+    resolution: {integrity: sha512-kdgb8BXZ/3XQ0x2cOmgLmsij7+SUIqd1bcV6OZhdGzQiDrOY6FAPrR+Y2Bp+NjrrhjzMHVm5pZrrmdeC67ymSQ==}
     cpu: [x64]
     os: [linux]
 
-  '@pnpm/linuxstatic-arm64@11.7.0':
-    resolution: {integrity: sha512-Q++pgzvXkGeqnVRl26/uqmpMGdttQus0rGyL3XIfYGLCi8ZfajYUaCKdZID2MH7+CNOuugWDdFDup3r7BR7Rfg==}
+  '@pnpm/linuxstatic-arm64@11.10.0':
+    resolution: {integrity: sha512-JE1WrSyKGvqGQgWzqrMXn//ehedpiRax3hi1oP+v6mhvcnlJD1lpfXsjSfIFl9weTWC5KVtFbxSNKbKWfP+v6g==}
     cpu: [arm64]
     os: [linux]
     libc: [musl]
 
-  '@pnpm/linuxstatic-x64@11.7.0':
-    resolution: {integrity: sha512-z1+exW6ocU/rmOvJnmU3FUBJYaryCUqFoaXN6KZW5BqTj7BPJb7HJcAyXRlirNZMJlEiUY5rXbfStGPQJhGsVA==}
+  '@pnpm/linuxstatic-x64@11.10.0':
+    resolution: {integrity: sha512-1TBZVRkWb78GnsusIfVgwz20MOOW0fyehW+qLL3MxE9vT0IedNWsAhe3KWXgEvtC4M7NtMt55uQQJm+1egwBkA==}
     cpu: [x64]
     os: [linux]
     libc: [musl]
 
-  '@pnpm/macos-arm64@11.7.0':
-    resolution: {integrity: sha512-gD34/k3JT5oab4BYaqrUor3e4VdwXvkfLNlEI+lvDtX1MHT+2Nauc9p9NsQnpn1zE8blQEflzbF8wAUQ6Dmvkw==}
+  '@pnpm/macos-arm64@11.10.0':
+    resolution: {integrity: sha512-94AVpPixBqyNT6SHYvIKFb1bfaHR5vxBzZsiFJahNSlGkgyPrgzmcqDiloZ/Jl+zxJd8L5PU1ddP0Q9PZnRqlA==}
     cpu: [arm64]
     os: [darwin]
 
-  '@pnpm/win-arm64@11.7.0':
-    resolution: {integrity: sha512-hRTcDmm2j7KoRwbqNo0rUAu9A1kVJN98Eob7H09U0uPJbEMax85JGOmERkT3Lf6HjVJuFNBvfaJ3OTI3HmlVGg==}
+  '@pnpm/win-arm64@11.10.0':
+    resolution: {integrity: sha512-g2Ymnq+LgVyZaWsGBQSlpIcBCOOxyLky2UX+kTwGiIXnj6k/xXqZR0ZJLuxeiGNh/CVmhftOqokpyJNzyj8kng==}
     cpu: [arm64]
     os: [win32]
 
-  '@pnpm/win-x64@11.7.0':
-    resolution: {integrity: sha512-r/1NuKY7Z+6ZXVIzVrUEMj6TTEBdR63geV4Rlm8HKEhgQTdxyIsJoqV3FJGqoyzbRaScObqAwRfMaK9dskPddQ==}
+  '@pnpm/win-x64@11.10.0':
+    resolution: {integrity: sha512-kCHYZudUEBjrEchgnJUnNHCdvLXpUZun2z0rMAeP5DymsaXwEVvVzGj220iR/NyhgDocJUmgtTKtwL/ejL785Q==}
     cpu: [x64]
     os: [win32]
 
@@ -116,45 +116,45 @@ packages:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
     engines: {node: '>=8'}
 
-  pnpm@11.7.0:
-    resolution: {integrity: sha512-GcyFLBIMcSV2DyRD7mvgyltA+fUFmN4aCaHxd1A+AQ5Xwjx3ZG4B52HeWb+HT7IqM5jDOrlpH8E+uUa28PTWIA==}
+  pnpm@11.10.0:
+    resolution: {integrity: sha512-C3+LmAYAMZBMAX46QesYehbUDuuCm5XE+MsDaBdh/Eq1PdIZEVubRH9NzhoFohR2RGHn03AzkqnzL5URzoyGyA==}
     engines: {node: '>=22.13'}
     hasBin: true
 
 snapshots:
 
-  '@pnpm/exe@11.7.0':
+  '@pnpm/exe@11.10.0':
     dependencies:
       '@reflink/reflink': 0.1.19
       detect-libc: 2.1.2
     optionalDependencies:
-      '@pnpm/linux-arm64': 11.7.0
-      '@pnpm/linux-x64': 11.7.0
-      '@pnpm/linuxstatic-arm64': 11.7.0
-      '@pnpm/linuxstatic-x64': 11.7.0
-      '@pnpm/macos-arm64': 11.7.0
-      '@pnpm/win-arm64': 11.7.0
-      '@pnpm/win-x64': 11.7.0
+      '@pnpm/linux-arm64': 11.10.0
+      '@pnpm/linux-x64': 11.10.0
+      '@pnpm/linuxstatic-arm64': 11.10.0
+      '@pnpm/linuxstatic-x64': 11.10.0
+      '@pnpm/macos-arm64': 11.10.0
+      '@pnpm/win-arm64': 11.10.0
+      '@pnpm/win-x64': 11.10.0
 
-  '@pnpm/linux-arm64@11.7.0':
+  '@pnpm/linux-arm64@11.10.0':
     optional: true
 
-  '@pnpm/linux-x64@11.7.0':
+  '@pnpm/linux-x64@11.10.0':
     optional: true
 
-  '@pnpm/linuxstatic-arm64@11.7.0':
+  '@pnpm/linuxstatic-arm64@11.10.0':
     optional: true
 
-  '@pnpm/linuxstatic-x64@11.7.0':
+  '@pnpm/linuxstatic-x64@11.10.0':
     optional: true
 
-  '@pnpm/macos-arm64@11.7.0':
+  '@pnpm/macos-arm64@11.10.0':
     optional: true
 
-  '@pnpm/win-arm64@11.7.0':
+  '@pnpm/win-arm64@11.10.0':
     optional: true
 
-  '@pnpm/win-x64@11.7.0':
+  '@pnpm/win-x64@11.10.0':
     optional: true
 
   '@reflink/reflink-darwin-arm64@0.1.19':
@@ -194,7 +194,7 @@ snapshots:
 
   detect-libc@2.1.2: {}
 
-  pnpm@11.7.0: {}
+  pnpm@11.10.0: {}
 
 ---
 lockfileVersion: '9.0'
@@ -292,7 +292,7 @@ importers:
         version: 3.5.38(typescript@6.0.3)
       vue-router:
         specifier: 5.1.0
-        version: 5.1.0(@vue/compiler-sfc@3.5.38)(vite@8.1.0)(vue@3.5.38)
+        version: 5.1.0(@vue/compiler-sfc@3.5.39)(vite@8.1.0)(vue@3.5.38)
 
 packages:
 
@@ -1617,14 +1617,26 @@ packages:
   '@vue/compiler-core@3.5.38':
     resolution: {integrity: sha512-s99aGxWYig9ErHbct27KXEGhrBYlRI6c4MwAgXErOAbX9xiW37/uMa+XUDO69zLz83dng8UUZ70CTOJrLrYrEQ==}
 
+  '@vue/compiler-core@3.5.39':
+    resolution: {integrity: sha512-16KBTEXAJCpDr0mwlw+AZyhu8iyC7R3S2vBwsI7QnWJU6X3WKc9VKeNEZpiMdZ569qWhz9574L3vV55qRL0Vtw==}
+
   '@vue/compiler-dom@3.5.38':
     resolution: {integrity: sha512-JTqp25l8aFfJYF7/KmsXZjAxJz7T+SjmTJLoXVjHtc2BrSgSiW2n9Aem/cWq1OPe68A8JL06B3eVdhlP0H4TVw==}
+
+  '@vue/compiler-dom@3.5.39':
+    resolution: {integrity: sha512-oQPigALqYbNxTNPvNgSOe+czwVExfbVF02lz8jP0S3AXJiu3jxYDygNUiqSep4ezzW8XgnubqH63My2A7JR/vg==}
 
   '@vue/compiler-sfc@3.5.38':
     resolution: {integrity: sha512-DuA2GiZawSEW442iw/9+Fkol8hTgb4Ke5KkhmSry65QA7YuyMbIdy8p0XZRMvNwJdgRz307W8g1CSzdvS4nuNg==}
 
+  '@vue/compiler-sfc@3.5.39':
+    resolution: {integrity: sha512-d0ki86iOyN8LoZPBmk5SJWNwHP19CnDDCfuo//+2WJa2g5Ke0Jay983PIBIcSSzldC68I8DrD5GrHV3OSDfodg==}
+
   '@vue/compiler-ssr@3.5.38':
     resolution: {integrity: sha512-7s+W5Gc42FGxZMcuwl8H5B29T8BJPMdBT7KHFE+BbAuZ/iTEdTtv7z2XiMjiaUUw4w3ZcCEdHs36RuYJ2VA7bA==}
+
+  '@vue/compiler-ssr@3.5.39':
+    resolution: {integrity: sha512-Ce7/wvwMHai74bdszfXExdazFigYnlF9zgCmEQUcM1j0fOymlouZ7XilTYNo8oUjhlnjYOZbGrcYKuqjz89Ucw==}
 
   '@vue/devtools-api@8.1.2':
     resolution: {integrity: sha512-vA0O112YqyDuNA1s7Yb2gCgToQ/OxOWiFDO5ThLCcDy0ldHnSd1dUTaSYhOldbqoNgumE4dxtGAoAaSUKUD1Zg==}
@@ -1651,6 +1663,9 @@ packages:
 
   '@vue/shared@3.5.38':
     resolution: {integrity: sha512-FTW0AFZNaK5/mOqvGBwVfUlNLU38TiQn4+DQgIFUnrBBJQ1crMJ82yeGQLV5jyKFsO8yRukpbuP7x+nRbH6aug==}
+
+  '@vue/shared@3.5.39':
+    resolution: {integrity: sha512-l1rrBtBfTnmxvtsvdQDXltUUy8S1Y+ZaqdfUzmAnJkTd8Z8rv5v/ytW+TKiqEOWyHPoqtPlNFSs0lhRmYVSHVA==}
 
   '@vueuse/core@14.3.0':
     resolution: {integrity: sha512-aHfz47g0ZhMtTVHmIzMVpJy8ePhhOy68GY5bv110+5DVtZ+W7BsOx+m61UNQqfrWyPztIHIanWa3E2tib3NFIw==}
@@ -4956,7 +4971,7 @@ snapshots:
 
   '@vue-macros/common@3.1.2(vue@3.5.38)':
     dependencies:
-      '@vue/compiler-sfc': 3.5.38
+      '@vue/compiler-sfc': 3.5.39
       ast-kit: 2.2.0
       local-pkg: 1.1.2
       magic-string-ast: 1.0.3
@@ -4972,10 +4987,23 @@ snapshots:
       estree-walker: 2.0.2
       source-map-js: 1.2.1
 
+  '@vue/compiler-core@3.5.39':
+    dependencies:
+      '@babel/parser': 7.29.7
+      '@vue/shared': 3.5.39
+      entities: 7.0.1
+      estree-walker: 2.0.2
+      source-map-js: 1.2.1
+
   '@vue/compiler-dom@3.5.38':
     dependencies:
       '@vue/compiler-core': 3.5.38
       '@vue/shared': 3.5.38
+
+  '@vue/compiler-dom@3.5.39':
+    dependencies:
+      '@vue/compiler-core': 3.5.39
+      '@vue/shared': 3.5.39
 
   '@vue/compiler-sfc@3.5.38':
     dependencies:
@@ -4989,10 +5017,27 @@ snapshots:
       postcss: 8.5.15
       source-map-js: 1.2.1
 
+  '@vue/compiler-sfc@3.5.39':
+    dependencies:
+      '@babel/parser': 7.29.7
+      '@vue/compiler-core': 3.5.39
+      '@vue/compiler-dom': 3.5.39
+      '@vue/compiler-ssr': 3.5.39
+      '@vue/shared': 3.5.39
+      estree-walker: 2.0.2
+      magic-string: 0.30.21
+      postcss: 8.5.15
+      source-map-js: 1.2.1
+
   '@vue/compiler-ssr@3.5.38':
     dependencies:
       '@vue/compiler-dom': 3.5.38
       '@vue/shared': 3.5.38
+
+  '@vue/compiler-ssr@3.5.39':
+    dependencies:
+      '@vue/compiler-dom': 3.5.39
+      '@vue/shared': 3.5.39
 
   '@vue/devtools-api@8.1.2':
     dependencies:
@@ -5030,6 +5075,8 @@ snapshots:
       vue: 3.5.38(typescript@6.0.3)
 
   '@vue/shared@3.5.38': {}
+
+  '@vue/shared@3.5.39': {}
 
   '@vueuse/core@14.3.0(vue@3.5.38)':
     dependencies:
@@ -7165,7 +7212,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  vue-router@5.1.0(@vue/compiler-sfc@3.5.38)(vite@8.1.0)(vue@3.5.38):
+  vue-router@5.1.0(@vue/compiler-sfc@3.5.39)(vite@8.1.0)(vue@3.5.38):
     dependencies:
       '@babel/generator': 8.0.0-rc.5
       '@vue-macros/common': 3.1.2(vue@3.5.38)
@@ -7186,7 +7233,7 @@ snapshots:
       vue: 3.5.38(typescript@6.0.3)
       yaml: 2.9.0
     optionalDependencies:
-      '@vue/compiler-sfc': 3.5.38
+      '@vue/compiler-sfc': 3.5.39
       vite: 8.1.0(@types/node@25.6.0)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0)
 
   vue@3.5.38(typescript@6.0.3):
