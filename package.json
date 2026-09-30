@@ -16,7 +16,7 @@
     "@tweakpane/core": "2.0.5",
     "@vitejs/plugin-vue": "6.0.9",
     "@vitest/coverage-v8": "5.0.1",
-    "@vueuse/core": "14.4.0",
+    "@vueuse/core": "15.0.0",
     "es-toolkit": "1.52.0",
     "eslint": "10.11.0",
     "eslint-config-escapace": "5.20.4",
